@@ -1,0 +1,17 @@
+.preview-container.template-A {
+    display: flex;
+    width: 400px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-top: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.preview-container.template-A .left-column {
+    width: 30%;
+    margin-right: 10px;
+}
+
+.preview-container.template-A .right-column {
+    width: 70%;
+}
