@@ -61,46 +61,110 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
     };
 
     return (
-        <div>
+        <div style={{ width: "400px" }}>
             <h2>CV Form</h2>
             <div>
                 <label>Name: </label>
-                <input
-                    name="name"
-                    value={cvData.name}
-                    onChange={handleChange}
-                    placeholder="John Doe"
-                />
+                <input name="name" value={cvData.name} onChange={handleChange} placeholder="John Doe" />
             </div>
             <div>
                 <label>Email: </label>
-                <input
-                    name="email"
-                    value={cvData.email}
-                    onChange={handleChange}
-                    placeholder="john@example.com"
-                />
+                <input name="email" value={cvData.email} onChange={handleChange} placeholder="john@example.com" />
             </div>
             <div>
                 <label>Phone: </label>
-                <input
-                    name="phone"
-                    value={cvData.phone}
-                    onChange={handleChange}
-                    placeholder="(123) 456-7890"
-                />
+                <input name="phone" value={cvData.phone} onChange={handleChange} placeholder="(123) 456-7890" />
             </div>
             <div>
-                <label>Summary: </label>
+                <label>Profile Summary: </label>
                 <textarea
                     name="summary"
                     value={cvData.summary}
                     onChange={handleChange}
                     placeholder="Write a brief profile summary..."
+                    rows={3}
+                    style={{ width: "100%" }}
+                />
+            </div>
+            <div>
+                <label>Work Experience / Volunteer Experience: </label>
+                <textarea
+                    name="workExperience"
+                    value={cvData.workExperience}
+                    onChange={handleChange}
+                    placeholder="List your work or volunteer experience..."
+                    rows={3}
+                    style={{ width: "100%" }}
+                />
+            </div>
+            <div>
+                <label>Education: </label>
+                <textarea
+                    name="education"
+                    value={cvData.education}
+                    onChange={handleChange}
+                    placeholder="Your educational background..."
+                    rows={3}
+                    style={{ width: "100%" }}
+                />
+            </div>
+            <div>
+                <label>Skills: </label>
+                <textarea
+                    name="skills"
+                    value={cvData.skills}
+                    onChange={handleChange}
+                    placeholder="List your skills..."
+                    rows={2}
+                    style={{ width: "100%" }}
+                />
+            </div>
+            <div>
+                <label>Projects: </label>
+                <textarea
+                    name="projects"
+                    value={cvData.projects}
+                    onChange={handleChange}
+                    placeholder="Describe your projects..."
+                    rows={3}
+                    style={{ width: "100%" }}
+                />
+            </div>
+            <div>
+                <label>Certifications: </label>
+                <textarea
+                    name="certifications"
+                    value={cvData.certifications}
+                    onChange={handleChange}
+                    placeholder="List any certifications..."
+                    rows={2}
+                    style={{ width: "100%" }}
+                />
+            </div>
+            <div>
+                <label>Awards: </label>
+                <textarea
+                    name="awards"
+                    value={cvData.awards}
+                    onChange={handleChange}
+                    placeholder="List any awards..."
+                    rows={2}
+                    style={{ width: "100%" }}
+                />
+            </div>
+            <div>
+                <label>Interests: </label>
+                <textarea
+                    name="interests"
+                    value={cvData.interests}
+                    onChange={handleChange}
+                    placeholder="Your interests or hobbies..."
+                    rows={2}
+                    style={{ width: "100%" }}
                 />
             </div>
 
-            {/* Template Switcher */}
+            {/* Template Selector */}
             <div style={{ marginTop: "10px" }}>
                 <label>Template: </label>
                 <select value={template} onChange={handleTemplateChange}>
