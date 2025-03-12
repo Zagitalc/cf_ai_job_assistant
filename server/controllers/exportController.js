@@ -15,7 +15,12 @@ exports.exportPDF = async (req, res) => {
         const htmlContent = generateHTML(cvData, template);
 
         // 3. Launch Puppeteer to generate PDF
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch({
+            headless: "new",
+            timeout: 60000, // increases the timeout to 60 seconds
+            args: ["--no-sandbox", "--disable-setuid-sandbox"]
+        });
+
         const page = await browser.newPage();
 
         // Go to a blank page or about:blank

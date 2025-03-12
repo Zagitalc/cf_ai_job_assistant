@@ -7,20 +7,19 @@
     font-family: "Open Sans", sans-serif;
     background-color: #f9f9f9;
     color: #333;
-  }
-  
-  .preview-container.template-B .left-column {
+}
+
+.preview-container.template-B .left-column {
     width: 35%;
     background-color: #eff6fc;
     padding: 10px;
-  }
-  
-  .preview-container.template-B .right-column {
+}
+
+.preview-container.template-B .right-column {
     width: 65%;
     padding: 10px;
-  }
-  
-  .preview-container.template-B h3 {
+}
+
+.preview-container.template-B h3 {
     color: #007acc;
-  }
-  
+}
