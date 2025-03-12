@@ -50,30 +50,31 @@ exports.exportWord = async (req, res) => {
         const { cvData } = req.body;
 
         // Create a docx file using docx library
-        const doc = new Document();
-
-        // Example: Adding basic paragraphs from the CV data
-        doc.addSection({
-            children: [
-                new Paragraph({
+        const doc = new Document({
+            sections: [
+                {
                     children: [
-                        new TextRun({
-                            text: `Name: ${cvData.name}`,
-                            bold: true
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `Name: ${cvData.name}`,
+                                    bold: true
+                                })
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun(`Email: ${cvData.email}`)
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun(`Phone: ${cvData.phone}`)
+                            ]
                         })
+                        // ... Add more paragraphs or sections as needed
                     ]
-                }),
-                new Paragraph({
-                    children: [
-                        new TextRun(`Email: ${cvData.email}`)
-                    ]
-                }),
-                new Paragraph({
-                    children: [
-                        new TextRun(`Phone: ${cvData.phone}`)
-                    ]
-                })
-                // ... Add more sections (Experience, Skills, etc.) as you like
+                }
             ]
         });
 
