@@ -1,0 +1,26 @@
+.preview-container.template-B {
+    display: flex;
+    width: 400px;
+    border: 2px solid #007acc;
+    padding: 10px;
+    margin-top: 20px;
+    font-family: "Open Sans", sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+  }
+  
+  .preview-container.template-B .left-column {
+    width: 35%;
+    background-color: #eff6fc;
+    padding: 10px;
+  }
+  
+  .preview-container.template-B .right-column {
+    width: 65%;
+    padding: 10px;
+  }
+  
+  .preview-container.template-B h3 {
+    color: #007acc;
+  }
+  

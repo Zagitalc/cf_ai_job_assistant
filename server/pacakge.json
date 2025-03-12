@@ -1,0 +1,16 @@
+{
+    "name": "onclickcv-server",
+    "version": "1.0.0",
+    "description": "Backend for OnClickCV",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "nodemon server.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.18.2",
+        "puppeteer": "^19.6.0",
+        "docx": "^8.0.2"
+    }
+}
