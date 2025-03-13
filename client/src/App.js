@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import CVForm from "./components/CVForm";
 import CVPreview from "./components/CVPreview";
 import "./index.css";
+import 'react-quill/dist/quill.snow.css';
+
 
 function App() {
     // We'll store everything in a single state object for simplicity

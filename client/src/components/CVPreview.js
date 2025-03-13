@@ -47,7 +47,29 @@ const CVPreview = ({ cvData, template }) => {
                 <p>{workExperience}</p>
 
                 <h3>Education</h3>
-                <p>{education}</p>
+                {education && education.length > 0 ? (
+                    education.map((edu, idx) => (
+                        <div key={idx} style={{ marginBottom: "10px" }}>
+                            <p><strong>Degree:</strong> {edu.degree}</p>
+                            <p><strong>School:</strong> {edu.school}</p>
+                            <p><strong>Location:</strong> {edu.location}</p>
+                            <p><strong>Dates:</strong> {edu.startDate} - {edu.endDate}</p>
+                            {edu.additionalInfo && (
+                                <div>
+                                    <strong>Details:</strong>
+                                    {/* Render HTML from Quill */}
+                                    <div
+                                        dangerouslySetInnerHTML={{ __html: edu.additionalInfo }}
+                                        style={{ marginTop: "5px" }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    ))
+                ) : (
+                    <p>N/A</p>
+                )}
+
 
                 <h3>Projects</h3>
                 <p>{projects}</p>
