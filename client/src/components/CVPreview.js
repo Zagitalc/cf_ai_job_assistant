@@ -3,17 +3,18 @@ import "./../templates/TemplateA.css";
 import "./../templates/TemplateB.css";
 
 const CVPreview = ({ cvData, template }) => {
-    const { name,
+    const {
+        name,
         email,
         phone,
         summary,
         workExperience,
-        education,
-        skills,
         projects,
         certifications,
         awards,
-        interests
+        interests,
+        skills,
+        education
     } = cvData;
 
     return (
@@ -26,25 +27,33 @@ const CVPreview = ({ cvData, template }) => {
                 <p><strong>Phone:</strong> {phone}</p>
 
                 <h3>Skills</h3>
-                <p>{skills}</p>
+                {Array.isArray(skills) && skills.length > 0 ? (
+                    <ul className="skills-list">
+                        {skills.map((skill, i) => (
+                            <li key={i}>{skill}</li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p>N/A</p>
+                )}
 
                 <h3>Certifications</h3>
-                <p>{certifications}</p>
+                <p>{certifications || "N/A"}</p>
 
                 <h3>Awards</h3>
-                <p>{awards}</p>
+                <p>{awards || "N/A"}</p>
 
                 <h3>Interests</h3>
-                <p>{interests}</p>
+                <p>{interests || "N/A"}</p>
             </div>
 
             {/* Right Column */}
             <div className="right-column">
                 <h3>Profile Summary</h3>
-                <p>{summary}</p>
+                <p>{summary || "N/A"}</p>
 
                 <h3>Work Experience</h3>
-                <p>{workExperience}</p>
+                <p>{workExperience || "N/A"}</p>
 
                 <h3>Education</h3>
                 {education && education.length > 0 ? (
@@ -53,11 +62,12 @@ const CVPreview = ({ cvData, template }) => {
                             <p><strong>Degree:</strong> {edu.degree}</p>
                             <p><strong>School:</strong> {edu.school}</p>
                             <p><strong>Location:</strong> {edu.location}</p>
-                            <p><strong>Dates:</strong> {edu.startDate} - {edu.endDate}</p>
+                            <p>
+                                <strong>Dates:</strong> {edu.startDate} - {edu.endDate}
+                            </p>
                             {edu.additionalInfo && (
                                 <div>
                                     <strong>Details:</strong>
-                                    {/* Render HTML from Quill */}
                                     <div
                                         dangerouslySetInnerHTML={{ __html: edu.additionalInfo }}
                                         style={{ marginTop: "5px" }}
@@ -70,9 +80,8 @@ const CVPreview = ({ cvData, template }) => {
                     <p>N/A</p>
                 )}
 
-
                 <h3>Projects</h3>
-                <p>{projects}</p>
+                <p>{projects || "N/A"}</p>
             </div>
         </div>
     );

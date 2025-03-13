@@ -163,27 +163,27 @@ function generateHTML(cvData, template) {
 
     // Define style blocks for the two templates
     const styleTemplateA = `
-    <style>
-      body { font-family: Arial, sans-serif; margin: 20px; }
-      .container { display: flex; }
-      .left-column { width: 35%; padding-right: 15px; }
-      .right-column { width: 65%; }
-      .section-title { font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
-      p { margin: 5px 0; }
-      ul { margin: 5px 0; padding-left: 20px; }
-    </style>
-  `;
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { display: flex; }
+        .left-column { width: 35%; padding-right: 15px; }
+        .right-column { width: 65%; }
+        .section-title { font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+        p { margin: 5px 0; }
+        ul { margin: 5px 0; padding-left: 20px; }
+      </style>
+    `;
     const styleTemplateB = `
-    <style>
-      body { font-family: "Open Sans", sans-serif; margin: 20px; color: #333; }
-      .container { display: flex; }
-      .left-column { width: 35%; background: #eff6fc; padding: 10px; margin-right: 15px; }
-      .right-column { width: 65%; padding: 10px; }
-      .section-title { font-weight: bold; color: #007acc; margin-top: 15px; border-bottom: 1px solid #007acc; padding-bottom: 3px; }
-      p { margin: 5px 0; }
-      ul { margin: 5px 0; padding-left: 20px; }
-    </style>
-  `;
+      <style>
+        body { font-family: "Open Sans", sans-serif; margin: 20px; color: #333; }
+        .container { display: flex; }
+        .left-column { width: 35%; background: #eff6fc; padding: 10px; margin-right: 15px; }
+        .right-column { width: 65%; padding: 10px; }
+        .section-title { font-weight: bold; color: #007acc; margin-top: 15px; border-bottom: 1px solid #007acc; padding-bottom: 3px; }
+        p { margin: 5px 0; }
+        ul { margin: 5px 0; padding-left: 20px; }
+      </style>
+    `;
 
     const chosenStyle = template === "B" ? styleTemplateB : styleTemplateA;
 
@@ -193,66 +193,64 @@ function generateHTML(cvData, template) {
             ? `<ul>${skills.map((skill) => `<li>${skill}</li>`).join("")}</ul>`
             : `<p>N/A</p>`;
 
-    // Create HTML for education entries. Note that education.additionalInfo is stored as HTML (from React Quill)
+    // Create HTML for education entries. Education.additionalInfo is stored as HTML (from React Quill)
     const educationHTML =
         education && education.length > 0
             ? education
                 .map((edu) => {
                     return `
-            <div style="margin-bottom:10px;">
-              <p><strong>Degree:</strong> ${edu.degree}</p>
-              <p><strong>School:</strong> ${edu.school}</p>
-              <p><strong>Location:</strong> ${edu.location}</p>
-              <p><strong>Dates:</strong> ${edu.startDate} - ${edu.endDate}</p>
-              ${edu.additionalInfo
+              <div style="margin-bottom:10px;">
+                <p><strong>Degree:</strong> ${edu.degree}</p>
+                <p><strong>School:</strong> ${edu.school}</p>
+                <p><strong>Location:</strong> ${edu.location}</p>
+                <p><strong>Dates:</strong> ${edu.startDate} - ${edu.endDate}</p>
+                ${edu.additionalInfo
                             ? `<div><strong>Details:</strong><div style="margin-top:5px;">${edu.additionalInfo}</div></div>`
                             : ""
                         }
-            </div>
-            `;
+              </div>
+              `;
                 })
                 .join("")
             : `<p>N/A</p>`;
 
-
-
-    r// Construct the full HTML string
+    // Construct the full HTML string
     return `
-  <html>
-    <head>
-      <meta charset="UTF-8" />
-      ${chosenStyle}
-    </head>
-    <body>
-      <div class="container">
-        <div class="left-column">
-          <h3 class="section-title">Personal Info</h3>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Phone:</strong> ${phone}</p>
-          <h3 class="section-title">Skills</h3>
-          ${skillsHTML}
-          <h3 class="section-title">Certifications</h3>
-          <p>${certifications || "N/A"}</p>
-          <h3 class="section-title">Awards</h3>
-          <p>${awards || "N/A"}</p>
-          <h3 class="section-title">Interests</h3>
-          <p>${interests || "N/A"}</p>
-        </div>
-        <div class="right-column">
-          <h3 class="section-title">Profile Summary</h3>
-          <p>${summary || "N/A"}</p>
-          <h3 class="section-title">Work Experience</h3>
-          <p>${workExperience || "N/A"}</p>
-          <h3 class="section-title">Education</h3>
-          ${educationHTML}
-          <h3 class="section-title">Projects</h3>
-          <p>${projects || "N/A"}</p>
-        </div>
-      </div>
-    </body>
-  </html>
-`;
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          ${chosenStyle}
+        </head>
+        <body>
+          <div class="container">
+            <div class="left-column">
+              <h3 class="section-title">Personal Info</h3>
+              <p><strong>Name:</strong> ${name}</p>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Phone:</strong> ${phone}</p>
+              <h3 class="section-title">Skills</h3>
+              ${skillsHTML}
+              <h3 class="section-title">Certifications</h3>
+              <p>${certifications || "N/A"}</p>
+              <h3 class="section-title">Awards</h3>
+              <p>${awards || "N/A"}</p>
+              <h3 class="section-title">Interests</h3>
+              <p>${interests || "N/A"}</p>
+            </div>
+            <div class="right-column">
+              <h3 class="section-title">Profile Summary</h3>
+              <p>${summary || "N/A"}</p>
+              <h3 class="section-title">Work Experience</h3>
+              <p>${workExperience || "N/A"}</p>
+              <h3 class="section-title">Education</h3>
+              ${educationHTML}
+              <h3 class="section-title">Projects</h3>
+              <p>${projects || "N/A"}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
 }
 
 module.exports = {

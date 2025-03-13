@@ -96,3 +96,9 @@ textarea {
 .form-section {
     margin-bottom: 20px;
 }
+
+.skills-list {
+    margin: 5px 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
