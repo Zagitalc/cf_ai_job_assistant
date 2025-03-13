@@ -1,38 +1,26 @@
-const path = require("path");
+// const path = require("path");
 const puppeteer = require("puppeteer");
 const { Document, Packer, Paragraph, TextRun } = require("docx");
 
-// PDF Export Logic
+// PDF Export using Puppeteer
 exports.exportPDF = async (req, res) => {
     try {
-        // 1. Get CV data & template choice from client
+        // Retrieve CV data and template choice from client request
         const { cvData, template } = req.body;
-
-        // 2. Convert the data into HTML. 
-        //    For a real app, you might load an HTML file (templateA.html/templateB.html),
-        //    replace placeholders with user data, then use Puppeteer to create a PDF.
-
+        // Generate HTML string based on cvData
         const htmlContent = generateHTML(cvData, template);
 
-        // 3. Launch Puppeteer to generate PDF
-        const browser = await puppeteer.launch({
-            headless: "new",
-            timeout: 60000, // increases the timeout to 60 seconds
-            args: ["--no-sandbox", "--disable-setuid-sandbox"]
-        });
-
+        // Launch Puppeteer to render the HTML and generate a PDF
+        const browser = await puppeteer.launch();
         const page = await browser.newPage();
-
-        // Go to a blank page or about:blank
         await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-
         const pdfBuffer = await page.pdf({
             format: "A4",
             printBackground: true
         });
         await browser.close();
 
-        // 4. Send the PDF file as a response
+        // Set headers and send PDF back to client
         res.set({
             "Content-Type": "application/pdf",
             "Content-Disposition": "attachment; filename=OnClickCV.pdf"
@@ -44,12 +32,10 @@ exports.exportPDF = async (req, res) => {
     }
 };
 
-// Word Export Logic
+// Word Export using the docx library
 exports.exportWord = async (req, res) => {
     try {
         const { cvData } = req.body;
-
-        // Create a docx file using docx library
         const doc = new Document({
             sections: [
                 {
@@ -63,25 +49,94 @@ exports.exportWord = async (req, res) => {
                             ]
                         }),
                         new Paragraph({
-                            children: [
-                                new TextRun(`Email: ${cvData.email}`)
-                            ]
+                            children: [new TextRun(`Email: ${cvData.email}`)]
+                        }),
+                        new Paragraph({
+                            children: [new TextRun(`Phone: ${cvData.phone}`)]
                         }),
                         new Paragraph({
                             children: [
-                                new TextRun(`Phone: ${cvData.phone}`)
+                                new TextRun({ text: "Skills:", bold: true })
                             ]
+                        }),
+                        // Map over skills array
+                        ...cvData.skills.map((skill) =>
+                            new Paragraph({ children: [new TextRun(skill)] })
+                        ),
+                        new Paragraph({
+                            children: [
+                                new TextRun({ text: "Certifications:", bold: true })
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [new TextRun(cvData.certifications || "N/A")]
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({ text: "Awards:", bold: true })
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [new TextRun(cvData.awards || "N/A")]
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({ text: "Interests:", bold: true })
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [new TextRun(cvData.interests || "N/A")]
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({ text: "Profile Summary:", bold: true })
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [new TextRun(cvData.summary || "N/A")]
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({ text: "Work Experience:", bold: true })
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [new TextRun(cvData.workExperience || "N/A")]
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({ text: "Education:", bold: true })
+                            ]
+                        }),
+                        // Map over each education entry
+                        ...cvData.education.map((edu) =>
+                            new Paragraph({
+                                children: [
+                                    new TextRun(
+                                        `Degree: ${edu.degree} | School: ${edu.school} | Location: ${edu.location} | Dates: ${edu.startDate} - ${edu.endDate}`
+                                    ),
+                                    // Note: For simplicity, we're not parsing the additionalInfo HTML into rich formatting.
+                                    // You could choose to strip HTML tags or use a converter.
+                                ]
+                            })
+                        ),
+                        new Paragraph({
+                            children: [
+                                new TextRun({ text: "Projects:", bold: true })
+                            ]
+                        }),
+                        new Paragraph({
+                            children: [new TextRun(cvData.projects || "N/A")]
                         })
-                        // ... Add more paragraphs or sections as needed
                     ]
                 }
             ]
         });
 
         const buffer = await Packer.toBuffer(doc);
-
         res.set({
-            "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "Content-Type":
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "Content-Disposition": "attachment; filename=OnClickCV.docx"
         });
         return res.send(buffer);
@@ -106,72 +161,101 @@ function generateHTML(cvData, template) {
         interests
     } = cvData;
 
+    // Define style blocks for the two templates
     const styleTemplateA = `
-      <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { display: flex; }
-        .left-column { width: 35%; padding-right: 15px; }
-        .right-column { width: 65%; }
-        .section-title { font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
-        p { margin: 5px 0; }
-      </style>
-    `;
-
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      .container { display: flex; }
+      .left-column { width: 35%; padding-right: 15px; }
+      .right-column { width: 65%; }
+      .section-title { font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+      p { margin: 5px 0; }
+      ul { margin: 5px 0; padding-left: 20px; }
+    </style>
+  `;
     const styleTemplateB = `
-      <style>
-        body { font-family: "Open Sans", sans-serif; margin: 20px; color: #333; }
-        .container { display: flex; }
-        .left-column { width: 35%; background: #eff6fc; padding: 10px; margin-right: 15px; }
-        .right-column { width: 65%; padding: 10px; }
-        .section-title { font-weight: bold; color: #007acc; margin-top: 15px; border-bottom: 1px solid #007acc; padding-bottom: 3px; }
-        p { margin: 5px 0; }
-      </style>
-    `;
+    <style>
+      body { font-family: "Open Sans", sans-serif; margin: 20px; color: #333; }
+      .container { display: flex; }
+      .left-column { width: 35%; background: #eff6fc; padding: 10px; margin-right: 15px; }
+      .right-column { width: 65%; padding: 10px; }
+      .section-title { font-weight: bold; color: #007acc; margin-top: 15px; border-bottom: 1px solid #007acc; padding-bottom: 3px; }
+      p { margin: 5px 0; }
+      ul { margin: 5px 0; padding-left: 20px; }
+    </style>
+  `;
 
     const chosenStyle = template === "B" ? styleTemplateB : styleTemplateA;
 
+    // Create HTML for skills as a list
+    const skillsHTML =
+        skills && skills.length > 0
+            ? `<ul>${skills.map((skill) => `<li>${skill}</li>`).join("")}</ul>`
+            : `<p>N/A</p>`;
+
+    // Create HTML for education entries. Note that education.additionalInfo is stored as HTML (from React Quill)
+    const educationHTML =
+        education && education.length > 0
+            ? education
+                .map((edu) => {
+                    return `
+            <div style="margin-bottom:10px;">
+              <p><strong>Degree:</strong> ${edu.degree}</p>
+              <p><strong>School:</strong> ${edu.school}</p>
+              <p><strong>Location:</strong> ${edu.location}</p>
+              <p><strong>Dates:</strong> ${edu.startDate} - ${edu.endDate}</p>
+              ${edu.additionalInfo
+                            ? `<div><strong>Details:</strong><div style="margin-top:5px;">${edu.additionalInfo}</div></div>`
+                            : ""
+                        }
+            </div>
+            `;
+                })
+                .join("")
+            : `<p>N/A</p>`;
+
+
+
+    r// Construct the full HTML string
     return `
-      <html>
-        <head>
-          <meta charset="UTF-8" />
-          ${chosenStyle}
-        </head>
-        <body>
-          <div class="container">
-            <div class="left-column">
-              <h3 class="section-title">Personal Info</h3>
-              <p><strong>Name:</strong> ${name}</p>
-              <p><strong>Email:</strong> ${email}</p>
-              <p><strong>Phone:</strong> ${phone}</p>
-              
-              <h3 class="section-title">Skills</h3>
-              <p>${skills || "N/A"}</p>
-              
-              <h3 class="section-title">Certifications</h3>
-              <p>${certifications || "N/A"}</p>
-              
-              <h3 class="section-title">Awards</h3>
-              <p>${awards || "N/A"}</p>
-              
-              <h3 class="section-title">Interests</h3>
-              <p>${interests || "N/A"}</p>
-            </div>
-            <div class="right-column">
-              <h3 class="section-title">Profile Summary</h3>
-              <p>${summary || "N/A"}</p>
-              
-              <h3 class="section-title">Work Experience</h3>
-              <p>${workExperience || "N/A"}</p>
-              
-              <h3 class="section-title">Education</h3>
-              <p>${education || "N/A"}</p>
-              
-              <h3 class="section-title">Projects</h3>
-              <p>${projects || "N/A"}</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      ${chosenStyle}
+    </head>
+    <body>
+      <div class="container">
+        <div class="left-column">
+          <h3 class="section-title">Personal Info</h3>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Phone:</strong> ${phone}</p>
+          <h3 class="section-title">Skills</h3>
+          ${skillsHTML}
+          <h3 class="section-title">Certifications</h3>
+          <p>${certifications || "N/A"}</p>
+          <h3 class="section-title">Awards</h3>
+          <p>${awards || "N/A"}</p>
+          <h3 class="section-title">Interests</h3>
+          <p>${interests || "N/A"}</p>
+        </div>
+        <div class="right-column">
+          <h3 class="section-title">Profile Summary</h3>
+          <p>${summary || "N/A"}</p>
+          <h3 class="section-title">Work Experience</h3>
+          <p>${workExperience || "N/A"}</p>
+          <h3 class="section-title">Education</h3>
+          ${educationHTML}
+          <h3 class="section-title">Projects</h3>
+          <p>${projects || "N/A"}</p>
+        </div>
+      </div>
+    </body>
+  </html>
+`;
 }
 
+module.exports = {
+    exportPDF: exports.exportPDF,
+    exportWord: exports.exportWord
+};
