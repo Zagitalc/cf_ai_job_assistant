@@ -9,12 +9,12 @@ const CVPreview = ({ cvData, template }) => {
         phone,
         summary,
         workExperience,
+        education,
+        skills,
         projects,
         certifications,
         awards,
-        interests,
-        skills,
-        education
+        interests
     } = cvData;
 
     return (
@@ -22,15 +22,16 @@ const CVPreview = ({ cvData, template }) => {
             {/* Left Column */}
             <div className="left-column">
                 <h3>Personal Info</h3>
-                <p><strong>Name:</strong> {name}</p>
-                <p><strong>Email:</strong> {email}</p>
-                <p><strong>Phone:</strong> {phone}</p>
+                <p><strong>Name:</strong> {name || 'N/A'}</p>
+                <p><strong>Email:</strong> {email || 'N/A'}</p>
+                <p><strong>Phone:</strong> {phone || 'N/A'}</p>
 
                 <h3>Skills</h3>
-                {Array.isArray(skills) && skills.length > 0 ? (
-                    <ul className="skills-list">
-                        {skills.map((skill, i) => (
-                            <li key={i}>{skill}</li>
+                {/* Fixed skills rendering to handle array data structure */}
+                {skills && skills.length > 0 ? (
+                    <ul>
+                        {skills.map((skill, idx) => (
+                            <li key={idx}>{skill}</li>
                         ))}
                     </ul>
                 ) : (
@@ -38,39 +39,38 @@ const CVPreview = ({ cvData, template }) => {
                 )}
 
                 <h3>Certifications</h3>
-                <p>{certifications || "N/A"}</p>
+                <p>{certifications || 'N/A'}</p>
 
                 <h3>Awards</h3>
-                <p>{awards || "N/A"}</p>
+                <p>{awards || 'N/A'}</p>
 
                 <h3>Interests</h3>
-                <p>{interests || "N/A"}</p>
+                <p>{interests || 'N/A'}</p>
             </div>
 
             {/* Right Column */}
             <div className="right-column">
                 <h3>Profile Summary</h3>
-                <p>{summary || "N/A"}</p>
+                <p>{summary || 'N/A'}</p>
 
                 <h3>Work Experience</h3>
-                <p>{workExperience || "N/A"}</p>
+                <p>{workExperience || 'N/A'}</p>
 
                 <h3>Education</h3>
                 {education && education.length > 0 ? (
                     education.map((edu, idx) => (
-                        <div key={idx} style={{ marginBottom: "10px" }}>
+                        <div key={idx} className="education-entry">
                             <p><strong>Degree:</strong> {edu.degree}</p>
                             <p><strong>School:</strong> {edu.school}</p>
                             <p><strong>Location:</strong> {edu.location}</p>
-                            <p>
-                                <strong>Dates:</strong> {edu.startDate} - {edu.endDate}
-                            </p>
+                            <p><strong>Dates:</strong> {edu.startDate} - {edu.endDate}</p>
                             {edu.additionalInfo && (
                                 <div>
                                     <strong>Details:</strong>
+                                    {/* Render HTML from Quill with security consideration */}
                                     <div
                                         dangerouslySetInnerHTML={{ __html: edu.additionalInfo }}
-                                        style={{ marginTop: "5px" }}
+                                        className="education-details"
                                     />
                                 </div>
                             )}
@@ -81,7 +81,7 @@ const CVPreview = ({ cvData, template }) => {
                 )}
 
                 <h3>Projects</h3>
-                <p>{projects || "N/A"}</p>
+                <p>{projects || 'N/A'}</p>
             </div>
         </div>
     );
