@@ -7,14 +7,14 @@ const CVPreview = ({ cvData, template }) => {
         name,
         email,
         phone,
+        linkedin,
         summary,
         workExperience,
         education,
         skills,
         projects,
         certifications,
-        awards,
-        interests
+        awards
     } = cvData;
 
     return (
@@ -26,9 +26,9 @@ const CVPreview = ({ cvData, template }) => {
                     <p><strong>Name:</strong> {name || 'N/A'}</p>
                     <p><strong>Email:</strong> {email || 'N/A'}</p>
                     <p><strong>Phone:</strong> {phone || 'N/A'}</p>
+                    <p><strong>LinkedIn:</strong> {linkedin || 'N/A'}</p>
 
                     <h3>Skills</h3>
-                    {/* Fixed skills rendering to handle array data structure */}
                     {skills && skills.length > 0 ? (
                         <ul>
                             {skills.map((skill, idx) => (
@@ -39,26 +39,31 @@ const CVPreview = ({ cvData, template }) => {
                         <p>N/A</p>
                     )}
 
-                    <h3>Certifications</h3>
-                    {certifications && certifications.length > 0 ? (
-                        <ul>
-                            {certifications.map((cert, idx) => (
-                                <li key={idx}>{cert}</li>
-                            ))}
-                        </ul>
-                    ) : <p>N/A</p>}
+                    {certifications && certifications.length > 0 && (
+                        <>
+                            <h3>Certifications</h3>
+                            <ul>
+                                {certifications.map((cert, idx) => (
+                                    <li key={idx}>
+                                        <span dangerouslySetInnerHTML={{ __html: cert }} />
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    )}
 
-                    <h3>Awards</h3>
-                    {awards && awards.length > 0 ? (
-                        <ul>
-                            {awards.map((award, idx) => (
-                                <li key={idx}>{award}</li>
-                            ))}
-                        </ul>
-                    ) : <p>N/A</p>}
-
-                    <h3>Interests</h3>
-                    {interests ? <p>{interests}</p> : null}
+                    {awards && awards.length > 0 && (
+                        <>
+                            <h3>Awards</h3>
+                            <ul>
+                                {awards.map((award, idx) => (
+                                    <li key={idx}>
+                                        <span dangerouslySetInnerHTML={{ __html: award }} />
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    )}
                 </div>
 
                 {/* Right Column */}
@@ -72,20 +77,27 @@ const CVPreview = ({ cvData, template }) => {
                     <h3>Education</h3>
                     {education && education.length > 0 ? (
                         education.map((edu, idx) => (
-                            <div key={idx} className="education-entry">
-                                <p><strong>Degree:</strong> {edu.degree}</p>
-                                <p><strong>School:</strong> {edu.school}</p>
-                                <p><strong>Location:</strong> {edu.location}</p>
-                                <p><strong>Dates:</strong> {edu.startDate} - {edu.endDate}</p>
-                                {edu.additionalInfo && (
-                                    <div>
-                                        <strong>Details:</strong>
-                                        {/* Render HTML from Quill with security consideration */}
-                                        <div
-                                            dangerouslySetInnerHTML={{ __html: edu.additionalInfo }}
-                                            className="education-details"
-                                        />
+                            <div key={idx} className="education-entry" style={{ marginBottom: 18 }}>
+                                <div style={{ fontWeight: 700, fontSize: "1.15em", marginBottom: 2 }}>
+                                    {edu.school}
+                                </div>
+                                {edu.degree && (
+                                    <div style={{ marginBottom: 2 }}>{edu.degree}</div>
+                                )}
+                                {edu.location && (
+                                    <div style={{ marginBottom: 2 }}>{edu.location}</div>
+                                )}
+                                {(edu.startDate || edu.endDate) && (
+                                    <div style={{ color: "#888", fontSize: "0.95em", marginBottom: 2 }}>
+                                        {edu.startDate}{edu.startDate && edu.endDate ? " - " : ""}{edu.endDate}
                                     </div>
+                                )}
+                                {edu.additionalInfo && (
+                                    <div
+                                        style={{ marginBottom: 2 }}
+                                        dangerouslySetInnerHTML={{ __html: edu.additionalInfo }}
+                                        className="education-details"
+                                    />
                                 )}
                             </div>
                         ))
