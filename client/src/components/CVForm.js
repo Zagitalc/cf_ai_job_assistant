@@ -5,6 +5,8 @@ import "react-quill/dist/quill.snow.css";
 const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
     // Local state for adding new skills
     const [newSkill, setNewSkill] = useState("");
+    const [newCert, setNewCert] = useState("");
+    const [newAward, setNewAward] = useState("");
 
     // Local state for adding new education entry
     const [newEdu, setNewEdu] = useState({
@@ -16,6 +18,9 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
         // We'll store the Quill HTML content here
         additionalInfo: ""
     });
+
+    const [showCert, setShowCert] = useState(false);
+    const [showAwards, setShowAwards] = useState(false);
 
     // Update top-level cvData for fields like name, summary, phone, etc.
     const handleChange = (e) => {
@@ -76,6 +81,36 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
             endDate: "",
             additionalInfo: ""
         });
+    };
+
+    /* =========================
+       CERTIFICATIONS: ADD/REMOVE LOGIC
+       ========================= */
+    const handleAddCert = () => {
+        if (!newCert.trim()) return;
+        const updatedCerts = [...(cvData.certifications || []), newCert.trim()];
+        setCvData({ ...cvData, certifications: updatedCerts });
+        setNewCert("");
+    };
+
+    const handleRemoveCert = (index) => {
+        const updatedCerts = cvData.certifications.filter((_, i) => i !== index);
+        setCvData({ ...cvData, certifications: updatedCerts });
+    };
+
+    /* =========================
+       AWARDS: ADD/REMOVE LOGIC
+       ========================= */
+    const handleAddAward = () => {
+        if (!newAward.trim()) return;
+        const updatedAwards = [...(cvData.awards || []), newAward.trim()];
+        setCvData({ ...cvData, awards: updatedAwards });
+        setNewAward("");
+    };
+
+    const handleRemoveAward = (index) => {
+        const updatedAwards = cvData.awards.filter((_, i) => i !== index);
+        setCvData({ ...cvData, awards: updatedAwards });
     };
 
     /* =========================
@@ -213,7 +248,7 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
                                     onClick={() => handleRemoveSkill(idx)}
                                     style={{ background: "#ccc" }}
                                 >
-                                    x
+                                    Remove
                                 </button>
                             </li>
                         ))}
@@ -250,23 +285,25 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
                     placeholder="e.g., Durham, UK"
                 />
             </div>
-            <div>
-                <label>Start Date:</label>
-                <input
-                    name="startDate"
-                    value={newEdu.startDate}
-                    onChange={handleEduChange}
-                    placeholder="e.g., 2020"
-                />
-            </div>
-            <div>
-                <label>End Date:</label>
-                <input
-                    name="endDate"
-                    value={newEdu.endDate}
-                    onChange={handleEduChange}
-                    placeholder="e.g., 2024 (or 'Present')"
-                />
+            <div className="dates-row">
+                <div>
+                    <label>Start Date:</label>
+                    <input
+                        type="date"
+                        name="startDate"
+                        value={newEdu.startDate}
+                        onChange={handleEduChange}
+                    />
+                </div>
+                <div>
+                    <label>End Date:</label>
+                    <input
+                        type="date"
+                        name="endDate"
+                        value={newEdu.endDate}
+                        onChange={handleEduChange}
+                    />
+                </div>
             </div>
             <div>
                 <label>Additional Info:</label>
@@ -278,28 +315,96 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
                 />
             </div>
             <button onClick={handleAddEducation}>Add Education</button>
+            {cvData.education.length > 0 && (
+                <div className="education-list">
+                    {cvData.education.map((edu, idx) => (
+                        <div key={idx} className="education-entry" style={{ border: "1px solid #eee", borderRadius: "6px", padding: "8px", marginBottom: "8px", position: "relative" }}>
+                            <button
+                                type="button"
+                                className="delete-btn"
+                                style={{ position: "absolute", top: "8px", right: "8px" }}
+                                onClick={() => {
+                                    const updatedEdu = cvData.education.filter((_, i) => i !== idx);
+                                    setCvData({ ...cvData, education: updatedEdu });
+                                }}
+                                aria-label="Delete education entry"
+                            >
+                                Remove
+                            </button>
+                            <div><strong>Degree:</strong> {edu.degree}</div>
+                            <div><strong>School:</strong> {edu.school}</div>
+                            <div><strong>Location:</strong> {edu.location}</div>
+                            <div><strong>Dates:</strong> {edu.startDate} - {edu.endDate}</div>
+                            {edu.additionalInfo && (
+                                <div>
+                                    <strong>Details:</strong>
+                                    <div dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
 
-            {/* Certifications, Awards, Interests */}
+            {/* Certifications */}
             <div>
-                <label>Certifications:</label>
-                <textarea
-                    name="certifications"
-                    value={cvData.certifications}
-                    onChange={handleChange}
-                    placeholder="List any certifications..."
-                    rows={2}
+                <label>Add a Certification:</label>
+                <input
+                    type="text"
+                    value={newCert}
+                    onChange={(e) => setNewCert(e.target.value)}
+                    placeholder="e.g. AWS Certified Solutions Architect"
                 />
+                <button type="button" onClick={handleAddCert}>Add Certification</button>
+                {cvData.certifications && cvData.certifications.length > 0 && (
+                    <ul className="skills-list">
+                        {cvData.certifications.map((cert, idx) => (
+                            <li key={idx}>
+                                {cert}
+                                <button
+                                    type="button"
+                                    className="delete-btn"
+                                    onClick={() => handleRemoveCert(idx)}
+                                    aria-label="Delete certification"
+                                >
+                                    Remove
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
+
+            {/* Awards */}
             <div>
-                <label>Awards:</label>
-                <textarea
-                    name="awards"
-                    value={cvData.awards}
-                    onChange={handleChange}
-                    placeholder="List any awards..."
-                    rows={2}
+                <label>Add an Award:</label>
+                <input
+                    type="text"
+                    value={newAward}
+                    onChange={(e) => setNewAward(e.target.value)}
+                    placeholder="e.g. Dean's List 2022"
                 />
+                <button type="button" onClick={handleAddAward}>Add Award</button>
+                {cvData.awards && cvData.awards.length > 0 && (
+                    <ul className="skills-list">
+                        {cvData.awards.map((award, idx) => (
+                            <li key={idx}>
+                                {award}
+                                <button
+                                    type="button"
+                                    className="delete-btn"
+                                    onClick={() => handleRemoveAward(idx)}
+                                    aria-label="Delete award"
+                                >
+                                    Remove
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
+
+            {/* Interests */}
             <div>
                 <label>Interests:</label>
                 <textarea

@@ -5,30 +5,24 @@ import "./index.css";
 import 'react-quill/dist/quill.snow.css';
 
 function App() {
-    // Fixed initial state with proper data types
     const [cvData, setCvData] = useState({
         name: "",
         email: "",
         phone: "",
         summary: "",
         workExperience: "",
-        // Initialize education as an array to prevent errors
         education: [],
-        // Initialize skills as an array to be consistent
         skills: [],
         projects: "",
-        certifications: "",
-        awards: "",
+        certifications: [],
+        awards: [],
         interests: ""
     });
 
     const [template, setTemplate] = useState("A");
-
-    // Add loading/error states
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState(null);
 
-    // Centralized export handling
     const handleExport = async (format) => {
         setIsExporting(true);
         setExportError(null);
@@ -60,11 +54,39 @@ function App() {
 
     return (
         <div className="container">
-            <header className="header">
-                <h1>OnClickCV</h1>
+            <header style={{
+                width: "100%",
+                textAlign: "center",
+                marginBottom: "32px",
+                padding: "16px 0",
+                borderBottom: "1px solid #eee",
+                fontFamily: "inherit"
+            }}>
+                <h1 style={{
+                    fontSize: "2rem",
+                    fontWeight: 700,
+                    margin: 0,
+                    letterSpacing: "0.5px"
+                }}>
+                    OnClickCV
+                </h1>
             </header>
-            <div className="main-content">
-                <div className="cv-form-container">
+            <div className="main-content" style={{
+                display: "flex",
+                gap: "32px",
+                alignItems: "flex-start",
+                width: "100%"
+            }}>
+                <div className="cv-form-container" style={{
+                    flex: "1 1 380px",
+                    maxWidth: 440,
+                    minWidth: 320,
+                    background: "#fff",
+                    borderRadius: 12,
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+                    padding: 24,
+                    marginBottom: 32
+                }}>
                     <CVForm
                         cvData={cvData}
                         setCvData={setCvData}
@@ -75,10 +97,47 @@ function App() {
                         exportError={exportError}
                     />
                 </div>
-                <div className="cv-preview-container">
-                    <CVPreview cvData={cvData} template={template} />
+                <div className="cv-preview-container" style={{
+                    flex: "2 1 600px",
+                    maxWidth: 900,
+                    minWidth: 320,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center"
+                }}>
+                    <div style={{
+                        width: "100%",
+                        maxWidth: 794,
+                        minHeight: 1123,
+                        background: "#fff",
+                        border: "1px solid #ddd",
+                        borderRadius: 12,
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                        padding: 24,
+                        margin: "0 auto"
+                    }}>
+                        <CVPreview cvData={cvData} template={template} />
+                    </div>
                 </div>
             </div>
+            <style>{`
+                @media (max-width: 900px) {
+                    .main-content {
+                        flex-direction: column;
+                        gap: 0;
+                    }
+                    .cv-form-container,
+                    .cv-preview-container {
+                        max-width: 100% !important;
+                        min-width: 0 !important;
+                        margin-bottom: 24px !important;
+                    }
+                    .cv-preview-container > div {
+                        max-width: 100% !important;
+                        min-width: 0 !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }
