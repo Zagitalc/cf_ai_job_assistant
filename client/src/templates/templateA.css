@@ -1,3 +1,9 @@
+.preview-container.template-A,
+.preview-container.template-B {
+    max-width: 100%; /* Make the preview responsive */
+    width: auto; /* Allow it to shrink if needed */
+}
+
 .preview-container.template-A {
     display: flex;
     width: 600px;
