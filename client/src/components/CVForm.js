@@ -5,8 +5,8 @@ import "react-quill/dist/quill.snow.css";
 const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
     // Local state for adding new skills
     const [newSkill, setNewSkill] = useState("");
-    const [newCert, setNewCert] = useState(""); // now stores HTML
-    const [newAward, setNewAward] = useState(""); // now stores HTML
+    const [newCert, setNewCert] = useState("");
+    const [newAward, setNewAward] = useState("");
 
     // Local state for adding new education entry
     const [newEdu, setNewEdu] = useState({
@@ -87,8 +87,8 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
        CERTIFICATIONS: ADD/REMOVE LOGIC
        ========================= */
     const handleAddCert = () => {
-        if (!newCert || newCert === "<p><br></p>") return;
-        const updatedCerts = [...(cvData.certifications || []), newCert];
+        if (!newCert.trim()) return;
+        const updatedCerts = [...(cvData.certifications || []), newCert.trim()];
         setCvData({ ...cvData, certifications: updatedCerts });
         setNewCert("");
     };
@@ -102,8 +102,8 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
        AWARDS: ADD/REMOVE LOGIC
        ========================= */
     const handleAddAward = () => {
-        if (!newAward || newAward === "<p><br></p>") return;
-        const updatedAwards = [...(cvData.awards || []), newAward];
+        if (!newAward.trim()) return;
+        const updatedAwards = [...(cvData.awards || []), newAward.trim()];
         setCvData({ ...cvData, awards: updatedAwards });
         setNewAward("");
     };
@@ -349,10 +349,10 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
             {/* Certifications */}
             <div>
                 <label>Add a Certification:</label>
-                <ReactQuill
-                    theme="snow"
+                <input
+                    type="text"
                     value={newCert}
-                    onChange={setNewCert}
+                    onChange={(e) => setNewCert(e.target.value)}
                     placeholder="e.g. AWS Certified Solutions Architect"
                 />
                 <button type="button" onClick={handleAddCert}>Add Certification</button>
@@ -360,14 +360,11 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
                     <ul className="skills-list">
                         {cvData.certifications.map((cert, idx) => (
                             <li key={idx}>
-                                <div dangerouslySetInnerHTML={{ __html: cert }} />
+                                {cert}
                                 <button
                                     type="button"
                                     className="delete-btn"
-                                    onClick={() => {
-                                        const updatedCerts = cvData.certifications.filter((_, i) => i !== idx);
-                                        setCvData({ ...cvData, certifications: updatedCerts });
-                                    }}
+                                    onClick={() => handleRemoveCert(idx)}
                                     aria-label="Delete certification"
                                 >
                                     Remove
@@ -381,10 +378,10 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
             {/* Awards */}
             <div>
                 <label>Add an Award:</label>
-                <ReactQuill
-                    theme="snow"
+                <input
+                    type="text"
                     value={newAward}
-                    onChange={setNewAward}
+                    onChange={(e) => setNewAward(e.target.value)}
                     placeholder="e.g. Dean's List 2022"
                 />
                 <button type="button" onClick={handleAddAward}>Add Award</button>
@@ -392,14 +389,11 @@ const CVForm = ({ cvData, setCvData, template, setTemplate }) => {
                     <ul className="skills-list">
                         {cvData.awards.map((award, idx) => (
                             <li key={idx}>
-                                <div dangerouslySetInnerHTML={{ __html: award }} />
+                                {award}
                                 <button
                                     type="button"
                                     className="delete-btn"
-                                    onClick={() => {
-                                        const updatedAwards = cvData.awards.filter((_, i) => i !== idx);
-                                        setCvData({ ...cvData, awards: updatedAwards });
-                                    }}
+                                    onClick={() => handleRemoveAward(idx)}
                                     aria-label="Delete award"
                                 >
                                     Remove
