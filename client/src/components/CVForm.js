@@ -15,9 +15,15 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
         additionalInfo: ""
     });
 
+    // New states for work, volunteer, and projects
+    const [newWork, setNewWork] = useState("");
+    const [newVolunteer, setNewVolunteer] = useState("");
+    const [newProject, setNewProject] = useState("");
+
     // Handlers
     const handleChange = (e) => setCvData({ ...cvData, [e.target.name]: e.target.value });
 
+    // Skills
     const handleAddSkill = () => {
         if (!newSkill.trim()) return;
         setCvData({ ...cvData, skills: [...cvData.skills, newSkill.trim()] });
@@ -25,6 +31,7 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
     };
     const handleRemoveSkill = (idx) => setCvData({ ...cvData, skills: cvData.skills.filter((_, i) => i !== idx) });
 
+    // Education
     const handleEduChange = (e) => setNewEdu({ ...newEdu, [e.target.name]: e.target.value });
     const handleAdditionalInfoChange = (content) => setNewEdu({ ...newEdu, additionalInfo: content });
     const handleAddEducation = () => {
@@ -34,6 +41,7 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
     };
     const handleRemoveEducation = (idx) => setCvData({ ...cvData, education: cvData.education.filter((_, i) => i !== idx) });
 
+    // Certifications
     const handleAddCert = () => {
         if (!newCert || newCert === "<p><br></p>") return;
         setCvData({ ...cvData, certifications: [...(cvData.certifications || []), newCert] });
@@ -41,12 +49,37 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
     };
     const handleRemoveCert = (idx) => setCvData({ ...cvData, certifications: cvData.certifications.filter((_, i) => i !== idx) });
 
+    // Awards
     const handleAddAward = () => {
         if (!newAward || newAward === "<p><br></p>") return;
         setCvData({ ...cvData, awards: [...(cvData.awards || []), newAward] });
         setNewAward("");
     };
     const handleRemoveAward = (idx) => setCvData({ ...cvData, awards: cvData.awards.filter((_, i) => i !== idx) });
+
+    // Work Experience
+    const handleAddWork = () => {
+        if (!newWork || newWork === "<p><br></p>") return;
+        setCvData({ ...cvData, workExperience: [...(cvData.workExperience || []), newWork] });
+        setNewWork("");
+    };
+    const handleRemoveWork = (idx) => setCvData({ ...cvData, workExperience: cvData.workExperience.filter((_, i) => i !== idx) });
+
+    // Volunteer Experience
+    const handleAddVolunteer = () => {
+        if (!newVolunteer || newVolunteer === "<p><br></p>") return;
+        setCvData({ ...cvData, volunteerExperience: [...(cvData.volunteerExperience || []), newVolunteer] });
+        setNewVolunteer("");
+    };
+    const handleRemoveVolunteer = (idx) => setCvData({ ...cvData, volunteerExperience: cvData.volunteerExperience.filter((_, i) => i !== idx) });
+
+    // Projects
+    const handleAddProject = () => {
+        if (!newProject || newProject === "<p><br></p>") return;
+        setCvData({ ...cvData, projects: [...(cvData.projects || []), newProject] });
+        setNewProject("");
+    };
+    const handleRemoveProject = (idx) => setCvData({ ...cvData, projects: cvData.projects.filter((_, i) => i !== idx) });
 
     return (
         <form className="space-y-6">
@@ -110,28 +143,68 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
 
             {/* Work Experience */}
             <div>
-                <label className="block text-sm font-medium mb-1">Work/Volunteer Experience</label>
-                <textarea
-                    name="workExperience"
-                    value={cvData.workExperience}
-                    onChange={handleChange}
-                    placeholder="List your experience..."
-                    rows={3}
-                    className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <label className="block text-sm font-medium mb-1">Add Work Experience</label>
+                <ReactQuill
+                    theme="snow"
+                    value={newWork}
+                    onChange={setNewWork}
+                    placeholder="Describe your work experience..."
                 />
+                <button type="button" onClick={handleAddWork} className="mt-2 add-btn">Add Work Experience</button>
+                {cvData.workExperience && cvData.workExperience.length > 0 && (
+                    <ul className="list-disc pl-5 mt-2 space-y-1">
+                        {cvData.workExperience.map((work, idx) => (
+                            <li key={idx} className="flex items-center justify-between">
+                                <span dangerouslySetInnerHTML={{ __html: work }} />
+                                <button type="button" onClick={() => handleRemoveWork(idx)} className="remove-btn ml-2">Remove</button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            {/* Volunteer Experience */}
+            <div>
+                <label className="block text-sm font-medium mb-1">Add Volunteer Experience</label>
+                <ReactQuill
+                    theme="snow"
+                    value={newVolunteer}
+                    onChange={setNewVolunteer}
+                    placeholder="Describe your volunteer experience..."
+                />
+                <button type="button" onClick={handleAddVolunteer} className="mt-2 add-btn">Add Volunteer Experience</button>
+                {cvData.volunteerExperience && cvData.volunteerExperience.length > 0 && (
+                    <ul className="list-disc pl-5 mt-2 space-y-1">
+                        {cvData.volunteerExperience.map((vol, idx) => (
+                            <li key={idx} className="flex items-center justify-between">
+                                <span dangerouslySetInnerHTML={{ __html: vol }} />
+                                <button type="button" onClick={() => handleRemoveVolunteer(idx)} className="remove-btn ml-2">Remove</button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
 
             {/* Projects */}
             <div>
-                <label className="block text-sm font-medium mb-1">Projects</label>
-                <textarea
-                    name="projects"
-                    value={cvData.projects}
-                    onChange={handleChange}
-                    placeholder="Describe your projects..."
-                    rows={3}
-                    className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <label className="block text-sm font-medium mb-1">Add a Project</label>
+                <ReactQuill
+                    theme="snow"
+                    value={newProject}
+                    onChange={setNewProject}
+                    placeholder="Describe your project..."
                 />
+                <button type="button" onClick={handleAddProject} className="mt-2 add-btn">Add Project</button>
+                {cvData.projects && cvData.projects.length > 0 && (
+                    <ul className="list-disc pl-5 mt-2 space-y-1">
+                        {cvData.projects.map((proj, idx) => (
+                            <li key={idx} className="flex items-center justify-between">
+                                <span dangerouslySetInnerHTML={{ __html: proj }} />
+                                <button type="button" onClick={() => handleRemoveProject(idx)} className="remove-btn ml-2">Remove</button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
 
             {/* Skills */}
@@ -145,14 +218,14 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                         placeholder="e.g. Python, React"
                         className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <button type="button" onClick={handleAddSkill} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add</button>
+                    <button type="button" onClick={handleAddSkill} className="add-btn">Add</button>
                 </div>
                 {cvData.skills.length > 0 && (
                     <ul className="list-disc pl-5 mt-2 space-y-1">
                         {cvData.skills.map((skill, idx) => (
                             <li key={idx} className="flex items-center justify-between">
                                 <span>{skill}</span>
-                                <button type="button" onClick={() => handleRemoveSkill(idx)} className="text-red-500 hover:underline text-xs ml-2">Remove</button>
+                                <button type="button" onClick={() => handleRemoveSkill(idx)} className="remove-btn ml-2">Remove</button>
                             </li>
                         ))}
                     </ul>
@@ -193,9 +266,9 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium mb-1">Start Date</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label>Start Date</label>
                             <input
                                 type="date"
                                 name="startDate"
@@ -204,8 +277,8 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                                 className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium mb-1">End Date</label>
+                        <div>
+                            <label>End Date</label>
                             <input
                                 type="date"
                                 name="endDate"
@@ -225,14 +298,14 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                         placeholder="Optional details, honors, relevant coursework..."
                     />
                 </div>
-                <button type="button" onClick={handleAddEducation} className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Education</button>
+                <button type="button" onClick={handleAddEducation} className="mt-2 add-btn">Add Education</button>
                 {cvData.education.length > 0 && (
                     <div className="mt-4 space-y-2">
                         {cvData.education.map((edu, idx) => (
                             <div key={idx} className="border rounded p-3 relative bg-gray-50">
                                 <button
                                     type="button"
-                                    className="absolute top-2 right-2 text-xs text-red-500 hover:underline"
+                                    className="absolute top-2 right-2 remove-btn"
                                     onClick={() => handleRemoveEducation(idx)}
                                 >Remove</button>
                                 <div className="font-semibold">{edu.school}</div>
@@ -257,7 +330,7 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                     onChange={setNewCert}
                     placeholder="e.g. AWS Certified Solutions Architect"
                 />
-                <button type="button" onClick={handleAddCert} className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Certification</button>
+                <button type="button" onClick={handleAddCert} className="mt-2 add-btn">Add Certification</button>
                 {cvData.certifications && cvData.certifications.length > 0 && (
                     <ul className="list-disc pl-5 mt-2 space-y-1">
                         {cvData.certifications.map((cert, idx) => (
@@ -265,7 +338,7 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                                 <span dangerouslySetInnerHTML={{ __html: cert }} />
                                 <button
                                     type="button"
-                                    className="text-red-500 hover:underline text-xs ml-2"
+                                    className="remove-btn ml-2"
                                     onClick={() => handleRemoveCert(idx)}
                                 >Remove</button>
                             </li>
@@ -283,7 +356,7 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                     onChange={setNewAward}
                     placeholder="e.g. Dean's List 2022"
                 />
-                <button type="button" onClick={handleAddAward} className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Award</button>
+                <button type="button" onClick={handleAddAward} className="mt-2 add-btn">Add Award</button>
                 {cvData.awards && cvData.awards.length > 0 && (
                     <ul className="list-disc pl-5 mt-2 space-y-1">
                         {cvData.awards.map((award, idx) => (
@@ -291,7 +364,7 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                                 <span dangerouslySetInnerHTML={{ __html: award }} />
                                 <button
                                     type="button"
-                                    className="text-red-500 hover:underline text-xs ml-2"
+                                    className="remove-btn ml-2"
                                     onClick={() => handleRemoveAward(idx)}
                                 >Remove</button>
                             </li>

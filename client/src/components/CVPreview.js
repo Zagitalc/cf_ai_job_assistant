@@ -10,6 +10,7 @@ const CVPreview = ({ cvData, template }) => {
         linkedin,
         summary,
         workExperience,
+        volunteerExperience,
         education,
         skills,
         projects,
@@ -74,7 +75,26 @@ const CVPreview = ({ cvData, template }) => {
                     <div className="mb-4">{summary || 'N/A'}</div>
 
                     <h3 className="text-lg font-semibold border-b mb-2">Work Experience</h3>
-                    <div className="mb-4">{workExperience || 'N/A'}</div>
+                    {workExperience && workExperience.length > 0 ? (
+                        workExperience.map((work, idx) => (
+                            <div key={idx} className="mb-4">
+                                <div dangerouslySetInnerHTML={{ __html: work }} />
+                            </div>
+                        ))
+                    ) : (
+                        <div className="mb-4 text-gray-400">N/A</div>
+                    )}
+
+                    <h3 className="text-lg font-semibold border-b mb-2">Volunteer Experience</h3>
+                    {volunteerExperience && volunteerExperience.length > 0 ? (
+                        volunteerExperience.map((vol, idx) => (
+                            <div key={idx} className="mb-4">
+                                <div dangerouslySetInnerHTML={{ __html: vol }} />
+                            </div>
+                        ))
+                    ) : (
+                        <div className="mb-4 text-gray-400">N/A</div>
+                    )}
 
                     <h3 className="text-lg font-semibold border-b mb-2">Education</h3>
                     {education && education.length > 0 ? (
@@ -98,7 +118,15 @@ const CVPreview = ({ cvData, template }) => {
                     )}
 
                     <h3 className="text-lg font-semibold border-b mb-2">Projects</h3>
-                    <div className="mb-4">{projects || 'N/A'}</div>
+                    {projects && projects.length > 0 ? (
+                        projects.map((proj, idx) => (
+                            <div key={idx} className="mb-4">
+                                <div dangerouslySetInnerHTML={{ __html: proj }} />
+                            </div>
+                        ))
+                    ) : (
+                        <div className="mb-4 text-gray-400">N/A</div>
+                    )}
                 </div>
             </div>
         </div>
