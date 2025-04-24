@@ -1,25 +1,37 @@
 .preview-container.template-A,
 .preview-container.template-B {
-    max-width: 100%; /* Make the preview responsive */
-    width: auto; /* Allow it to shrink if needed */
+    max-width: 100%;
+    width: 100%;
+    /* Changed from auto to 100% */
+    box-sizing: border-box;
 }
 
 .preview-container.template-A {
     display: flex;
-    width: 600px;
     border: 1px solid #ccc;
     padding: 15px;
     font-family: Arial, sans-serif;
     background: #fff;
+    box-sizing: border-box;
+}
+
+.preview-container.template-A .left-column,
+.preview-container.template-A .right-column {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    box-sizing: border-box;
 }
 
 .preview-container.template-A .left-column {
     width: 35%;
+    min-width: 0;
     margin-right: 15px;
 }
 
 .preview-container.template-A .right-column {
     width: 65%;
+    min-width: 0;
 }
 
 .preview-container.template-A h3 {

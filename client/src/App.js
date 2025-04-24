@@ -9,11 +9,13 @@ function App() {
         name: "",
         email: "",
         phone: "",
+        linkedin: "",
         summary: "",
-        workExperience: "",
+        workExperience: [],
+        volunteerExperience: [],
         education: [],
         skills: [],
-        projects: "",
+        projects: [],
         certifications: [],
         awards: [],
         interests: ""
@@ -57,9 +59,9 @@ function App() {
             <header className="w-full py-6 border-b bg-white mb-8">
                 <h1 className="text-3xl font-bold text-center tracking-tight">OnClickCV</h1>
             </header>
-            <main className="container mx-auto px-4">
-                <div className="flex flex-col md:flex-row gap-8">
-                    <div className="w-full md:w-1/2 bg-white rounded-lg shadow p-6 mb-8 md:mb-0">
+            <main className="my-container">
+                <div className="flex flex-col lg:flex-row gap-8 w-full">
+                    <div className="w-full lg:w-1/2 bg-white rounded-lg shadow p-6 mb-8 lg:mb-0">
                         <CVForm
                             cvData={cvData}
                             setCvData={setCvData}
@@ -70,9 +72,11 @@ function App() {
                             exportError={exportError}
                         />
                     </div>
-                    <div className="w-full md:w-1/2 flex items-center justify-center">
-                        <div className="w-full max-w-[794px] min-h-[1123px] bg-white border rounded-lg shadow p-6">
-                            <CVPreview cvData={cvData} template={template} />
+                    <div className="w-full lg:w-1/2 flex items-center justify-center">
+                        <div className="w-full">
+                            <div className="a4-preview">
+                                <CVPreview cvData={cvData} template={template} />
+                            </div>
                         </div>
                     </div>
                 </div>
