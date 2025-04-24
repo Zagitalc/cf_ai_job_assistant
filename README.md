@@ -38,7 +38,44 @@ cd ../client
 npm install
 ```
 
-### Step 3: Run the Backend
+### Step 3: Set up Tailwind CSS (Frontend)
+
+Tailwind CSS is already configured in this project. If you need to set it up again or want to understand the process, follow these steps **inside the `client` folder**:
+
+```bash
+# Install Tailwind CSS and its dependencies
+npm install -D tailwindcss postcss autoprefixer
+
+# Initialize Tailwind config files
+npx tailwindcss init -p
+```
+
+Edit `tailwind.config.js` to include:
+
+```js
+module.exports = {
+  content: [
+    "./public/index.html",
+    "./src/**/*.{js,jsx,ts,tsx}"
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+```
+
+In `src/index.css`, ensure you have only:
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+You can now use Tailwind utility classes throughout your React components.
+
+### Step 4: Run the Backend
 
 Start the backend server first:
 
@@ -49,7 +86,7 @@ npm start
 
 The backend server runs by default on `http://localhost:4000`
 
-### Step 4: Run the Frontend (React)
+### Step 5: Run the Frontend (React)
 
 Open another terminal window, navigate to the client directory, and run the frontend React app:
 
@@ -90,7 +127,7 @@ OnClickCV
 ## Customization
 
 - **Templates:** Customize or add your own CV templates in `client/src/templates`.
-- **Styles:** Update styles globally in `client/src/index.css` or template-specific CSS.
+- **Styles:** Update styles globally in `client/src/index.css` or template-specific CSS. For modern UI, use [Tailwind CSS](https://tailwindcss.com/docs/utility-first).
 
 ## Troubleshooting
 
@@ -99,7 +136,7 @@ OnClickCV
 
 ## Dependencies Used
 
-- **Frontend:** React, React Quill (WYSIWYG Editor), axios (for requests, optional)
+- **Frontend:** React, React Quill (WYSIWYG Editor), Tailwind CSS, axios (for requests, optional)
 - **Backend:** Node.js, Express, Puppeteer (PDF generation), docx (Word generation), CORS
 
 ---
