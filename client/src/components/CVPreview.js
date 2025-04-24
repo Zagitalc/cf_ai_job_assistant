@@ -19,8 +19,8 @@ const CVPreview = ({ cvData, template }) => {
     } = cvData;
 
     return (
-        <div className="w-full h-full">
-            <div className={`flex flex-col md:flex-row gap-8 w-full h-full preview-container template-${template}`}>
+        <div className="w-full h-full break-words">
+            <div className={`flex flex-col md:flex-row gap-8 w-full h-full preview-container template-${template} break-words`}>
                 {/* Left Column */}
                 <div className="left-column w-full md:w-1/3 pr-4">
                     <h3 className="text-lg font-semibold border-b mb-2">Personal Info</h3>

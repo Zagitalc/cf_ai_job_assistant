@@ -1,15 +1,26 @@
 .preview-container.template-B {
     display: flex;
-    width: 600px;
     border: 2px solid #007acc;
     padding: 15px;
     font-family: "Open Sans", sans-serif;
     background-color: #f9f9f9;
     color: #333;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.preview-container.template-B .left-column,
+.preview-container.template-B .right-column {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    box-sizing: border-box;
 }
 
 .preview-container.template-B .left-column {
     width: 35%;
+    min-width: 0;
     background-color: #eff6fc;
     padding: 10px;
     margin-right: 15px;
@@ -17,6 +28,7 @@
 
 .preview-container.template-B .right-column {
     width: 65%;
+    min-width: 0;
     padding: 10px;
 }
 
@@ -26,4 +38,3 @@
     border-bottom: 1px solid #007acc;
     padding-bottom: 3px;
 }
-
