@@ -54,6 +54,34 @@ function App() {
         }
     };
 
+    // Save CV to backend
+    const handleSaveCV = async (userId) => {
+        try {
+            const response = await fetch("http://localhost:4000/api/cv/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cvData, userId })
+            });
+            if (!response.ok) throw new Error("Failed to save CV");
+            alert("CV saved!");
+        } catch (err) {
+            alert("Error saving CV: " + err.message);
+        }
+    };
+
+    // Load CV from backend
+    const handleLoadCV = async (userId) => {
+        try {
+            const response = await fetch(`http://localhost:4000/api/cv/${userId}`);
+            if (!response.ok) throw new Error("CV not found");
+            const data = await response.json();
+            setCvData(data);
+            alert("CV loaded!");
+        } catch (err) {
+            alert("Error loading CV: " + err.message);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <header className="w-full py-6 border-b bg-white mb-8">
@@ -70,6 +98,8 @@ function App() {
                             onExport={handleExport}
                             isExporting={isExporting}
                             exportError={exportError}
+                            onSave={handleSaveCV}
+                            onLoad={handleLoadCV}
                         />
                     </div>
                     <div className="w-full lg:w-1/2 flex items-center justify-center">

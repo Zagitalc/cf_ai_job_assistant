@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExporting, exportError }) => {
+const CVForm = ({
+    cvData, setCvData, template, setTemplate,
+    onExport, isExporting, exportError,
+    onSave, onLoad
+}) => {
     const [newSkill, setNewSkill] = useState("");
     const [newCert, setNewCert] = useState("");
     const [newAward, setNewAward] = useState("");
@@ -19,6 +23,8 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
     const [newWork, setNewWork] = useState("");
     const [newVolunteer, setNewVolunteer] = useState("");
     const [newProject, setNewProject] = useState("");
+
+    const [userId, setUserId] = useState("");
 
     // Handlers
     const handleChange = (e) => setCvData({ ...cvData, [e.target.name]: e.target.value });
@@ -396,6 +402,23 @@ const CVForm = ({ cvData, setCvData, template, setTemplate, onExport, isExportin
                 </button>
             </div>
             {exportError && <div className="text-red-500 mt-2">{exportError}</div>}
+
+            {/* Save/Load Buttons */}
+            <div className="flex gap-2 mt-4 items-center">
+                <input
+                    type="text"
+                    value={userId}
+                    onChange={e => setUserId(e.target.value)}
+                    placeholder="Enter User ID"
+                    className="border rounded px-3 py-2 flex-1"
+                />
+                <button type="button" onClick={() => onSave && userId && onSave(userId)} className="add-btn">
+                    Save CV
+                </button>
+                <button type="button" onClick={() => onLoad && userId && onLoad(userId)} className="add-btn">
+                    Load CV
+                </button>
+            </div>
         </form>
     );
 };
