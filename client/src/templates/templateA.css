@@ -1,41 +1,64 @@
-.preview-container.template-A,
-.preview-container.template-B {
-    max-width: 100%;
-    width: 100%;
-    /* Changed from auto to 100% */
-    box-sizing: border-box;
-}
-
 .preview-container.template-A {
     display: flex;
-    border: 1px solid #ccc;
-    padding: 15px;
-    font-family: Arial, sans-serif;
-    background: #fff;
+    gap: 20px;
+    border: 1px solid #d1d5db;
+    padding: 20px;
+    width: 100%;
+    max-width: 100%;
+    background: #ffffff;
+    color: #111827;
+    font-family: "Arial", sans-serif;
     box-sizing: border-box;
 }
 
 .preview-container.template-A .left-column,
 .preview-container.template-A .right-column {
-    word-break: break-word;
-    overflow-wrap: break-word;
-    white-space: normal;
+    min-width: 0;
     box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .preview-container.template-A .left-column {
     width: 35%;
-    min-width: 0;
-    margin-right: 15px;
 }
 
 .preview-container.template-A .right-column {
     width: 65%;
-    min-width: 0;
 }
 
 .preview-container.template-A h3 {
-    margin-top: 10px;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 3px;
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-bottom: 1px solid #d1d5db;
+    padding-bottom: 4px;
+    color: #111827;
+}
+
+.preview-container.template-A .preview-list,
+.preview-container.template-A .preview-rich-list,
+.preview-container.template-A .preview-personal-block,
+.preview-container.template-A .preview-text-block,
+.preview-container.template-A .preview-empty,
+.preview-container.template-A .preview-education-entry {
+    margin-bottom: 16px;
+}
+
+.preview-container.template-A .preview-list {
+    padding-left: 20px;
+}
+
+.preview-container.template-A .preview-empty {
+    color: #6b7280;
+}
+
+.preview-container.template-A .preview-education-school {
+    font-weight: 700;
+}
+
+.preview-container.template-A .preview-education-dates {
+    color: #6b7280;
+    font-size: 0.8rem;
+    margin: 4px 0;
 }

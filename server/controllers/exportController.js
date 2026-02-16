@@ -1,30 +1,330 @@
-// const path = require("path");
 const puppeteer = require("puppeteer");
 const { Document, Packer, Paragraph, TextRun } = require("docx");
 
-// PDF Export using Puppeteer
-exports.exportPDF = async (req, res) => {
+const normalizeArray = (value) => (Array.isArray(value) ? value : []);
+const isRichTextEmpty = (value) => !value || value === "<p><br></p>" || value.trim() === "";
+
+const escapeHtml = (value = "") =>
+    String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+const formatPlainText = (value) => {
+    if (!value) {
+        return "N/A";
+    }
+
+    return escapeHtml(value).replace(/\n/g, "<br />");
+};
+
+const stripHtml = (value = "") => String(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+const renderSkillsList = (skills) => {
+    const validSkills = normalizeArray(skills)
+        .map((skill) => escapeHtml(skill))
+        .filter(Boolean);
+
+    if (validSkills.length === 0) {
+        return '<div class="preview-empty">N/A</div>';
+    }
+
+    return `<ul class="preview-list">${validSkills.map((skill) => `<li>${skill}</li>`).join("")}</ul>`;
+};
+
+const renderRichEntries = (entries) => {
+    const validEntries = normalizeArray(entries).filter((entry) => !isRichTextEmpty(entry));
+
+    if (validEntries.length === 0) {
+        return '<div class="preview-empty">N/A</div>';
+    }
+
+    return `<div class="preview-rich-list">${validEntries
+        .map((entry) => `<div class="preview-rich-entry">${entry}</div>`)
+        .join("")}</div>`;
+};
+
+const renderEducationEntries = (education) => {
+    const validEntries = normalizeArray(education);
+    if (validEntries.length === 0) {
+        return '<div class="preview-empty">N/A</div>';
+    }
+
+    return `<div class="preview-rich-list">${validEntries
+        .map((edu) => {
+            const startDate = escapeHtml(edu.startDate || "");
+            const endDate = escapeHtml(edu.endDate || "");
+            const showDateRange = Boolean(startDate || endDate);
+
+            return `
+                <div class="preview-education-entry">
+                    <div class="preview-education-school">${escapeHtml(edu.school || "N/A")}</div>
+                    <div>${escapeHtml(edu.degree || "N/A")}</div>
+                    <div>${escapeHtml(edu.location || "N/A")}</div>
+                    ${
+                        showDateRange
+                            ? `<div class="preview-education-dates">${startDate}${
+                                  startDate && endDate ? " - " : ""
+                              }${endDate}</div>`
+                            : ""
+                    }
+                    ${
+                        edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo)
+                            ? `<div class="preview-rich-entry">${edu.additionalInfo}</div>`
+                            : ""
+                    }
+                </div>
+            `;
+        })
+        .join("")}</div>`;
+};
+
+const buildTemplateStyles = (template) => {
+    const isTemplateB = template === "B";
+
+    const sharedStyles = `
+        <style>
+            * { box-sizing: border-box; }
+            body {
+                margin: 0;
+                padding: 24px;
+                background: #ffffff;
+                color: #111827;
+            }
+            .preview-container {
+                width: 100%;
+                max-width: 100%;
+                background: #ffffff;
+                color: #111827;
+                word-break: break-word;
+                overflow-wrap: anywhere;
+            }
+            .preview-list,
+            .preview-rich-list,
+            .preview-personal-block,
+            .preview-text-block,
+            .preview-empty,
+            .preview-education-entry {
+                margin-bottom: 16px;
+            }
+            .preview-list {
+                margin-top: 0;
+                padding-left: 20px;
+            }
+            .preview-rich-entry { margin-bottom: 8px; }
+            .preview-empty { color: #6b7280; }
+            .preview-label { font-weight: 700; }
+            .preview-education-school { font-weight: 700; }
+            .preview-education-dates {
+                color: #64748b;
+                font-size: 0.8rem;
+                margin: 4px 0;
+            }
+        </style>
+    `;
+
+    const templateAStyles = `
+        <style>
+            body { font-family: Arial, sans-serif; }
+            .preview-container.template-A {
+                display: flex;
+                gap: 20px;
+                border: 1px solid #d1d5db;
+                padding: 20px;
+            }
+            .preview-container.template-A .left-column,
+            .preview-container.template-A .right-column {
+                min-width: 0;
+            }
+            .preview-container.template-A .left-column { width: 35%; }
+            .preview-container.template-A .right-column { width: 65%; }
+            .preview-container.template-A h3 {
+                margin: 0 0 8px;
+                font-size: 1.1rem;
+                font-weight: 700;
+                border-bottom: 1px solid #d1d5db;
+                padding-bottom: 4px;
+                color: #111827;
+            }
+        </style>
+    `;
+
+    const templateBStyles = `
+        <style>
+            body { font-family: "Roboto", "Helvetica", sans-serif; }
+            .preview-container.template-B {
+                display: grid;
+                grid-template-columns: 1fr 2.5fr;
+                border: 1px solid #c7d2fe;
+                min-height: 1000px;
+            }
+            .preview-container.template-B .left-column,
+            .preview-container.template-B .right-column {
+                min-width: 0;
+            }
+            .preview-container.template-B .left-column {
+                background: linear-gradient(180deg, #1f3b63 0%, #11243f 100%);
+                color: #f8fafc;
+                padding: 26px 22px;
+            }
+            .preview-container.template-B .right-column {
+                background: #ffffff;
+                color: #111827;
+                padding: 30px;
+            }
+            .preview-container.template-B h3 {
+                margin: 0 0 8px;
+                font-size: 1rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding-bottom: 6px;
+            }
+            .preview-container.template-B .left-column h3 {
+                color: #e2e8f0;
+                border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+            }
+            .preview-container.template-B .right-column h3 {
+                color: #1f3b63;
+                border-bottom: 2px solid #1f3b63;
+            }
+            .preview-container.template-B .preview-empty { color: #94a3b8; }
+        </style>
+    `;
+
+    return `${sharedStyles}${isTemplateB ? templateBStyles : templateAStyles}`;
+};
+
+const generateHTML = (cvData, template) => {
+    const safeTemplate = template === "B" ? "B" : "A";
+
+    const {
+        name,
+        email,
+        phone,
+        linkedin,
+        summary,
+        workExperience,
+        volunteerExperience,
+        education,
+        skills,
+        projects,
+        certifications,
+        awards
+    } = cvData || {};
+
+    const certificationEntries = normalizeArray(certifications).filter((entry) => !isRichTextEmpty(entry));
+    const awardEntries = normalizeArray(awards).filter((entry) => !isRichTextEmpty(entry));
+
+    return `
+        <html>
+            <head>
+                <meta charset="UTF-8" />
+                ${buildTemplateStyles(safeTemplate)}
+            </head>
+            <body>
+                <div class="preview-container template-${safeTemplate}">
+                    <div class="left-column">
+                        <h3>Personal Info</h3>
+                        <div class="preview-personal-block">
+                            <div><span class="preview-label">Name:</span> ${formatPlainText(name)}</div>
+                            <div><span class="preview-label">Email:</span> ${formatPlainText(email)}</div>
+                            <div><span class="preview-label">Phone:</span> ${formatPlainText(phone)}</div>
+                            <div><span class="preview-label">LinkedIn:</span> ${formatPlainText(linkedin)}</div>
+                        </div>
+
+                        <h3>Skills</h3>
+                        ${renderSkillsList(skills)}
+
+                        ${
+                            certificationEntries.length > 0
+                                ? `<h3>Certifications</h3>${renderRichEntries(certificationEntries)}`
+                                : ""
+                        }
+
+                        ${awardEntries.length > 0 ? `<h3>Awards</h3>${renderRichEntries(awardEntries)}` : ""}
+                    </div>
+
+                    <div class="right-column">
+                        <h3>Profile Summary</h3>
+                        <div class="preview-text-block">${formatPlainText(summary)}</div>
+
+                        <h3>Work Experience</h3>
+                        ${renderRichEntries(workExperience)}
+
+                        <h3>Volunteer Experience</h3>
+                        ${renderRichEntries(volunteerExperience)}
+
+                        <h3>Education</h3>
+                        ${renderEducationEntries(education)}
+
+                        <h3>Projects</h3>
+                        ${renderRichEntries(projects)}
+                    </div>
+                </div>
+            </body>
+        </html>
+    `;
+};
+
+const toWordLines = (entries) =>
+    normalizeArray(entries)
+        .map((entry) => stripHtml(entry))
+        .filter(Boolean);
+
+const addHeading = (children, text) => {
+    children.push(
+        new Paragraph({
+            children: [
+                new TextRun({
+                    text,
+                    bold: true
+                })
+            ]
+        })
+    );
+};
+
+const addLine = (children, text) => {
+    children.push(
+        new Paragraph({
+            children: [new TextRun(text)]
+        })
+    );
+};
+
+const addList = (children, entries) => {
+    if (!entries || entries.length === 0) {
+        addLine(children, "N/A");
+        return;
+    }
+
+    entries.forEach((entry) => addLine(children, `• ${entry}`));
+};
+
+const exportPDF = async (req, res) => {
     try {
-        // Retrieve CV data and template choice from client request
         const { cvData, template } = req.body;
-        // Generate HTML string based on cvData
         const htmlContent = generateHTML(cvData, template);
 
-        // Launch Puppeteer to render the HTML and generate a PDF
         const browser = await puppeteer.launch();
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
         const pdfBuffer = await page.pdf({
             format: "A4",
             printBackground: true
         });
+
         await browser.close();
 
-        // Set headers and send PDF back to client
         res.set({
             "Content-Type": "application/pdf",
             "Content-Disposition": "attachment; filename=OnClickCV.pdf"
         });
+
         return res.send(pdfBuffer);
     } catch (err) {
         console.error("Error generating PDF:", err);
@@ -32,103 +332,60 @@ exports.exportPDF = async (req, res) => {
     }
 };
 
-// Word Export using the docx library
-exports.exportWord = async (req, res) => {
+const exportWord = async (req, res) => {
     try {
-        const { cvData } = req.body;
+        const safeCvData = req.body.cvData || {};
+
+        const children = [];
+
+        addHeading(children, `Name: ${safeCvData.name || "N/A"}`);
+        addLine(children, `Email: ${safeCvData.email || "N/A"}`);
+        addLine(children, `Phone: ${safeCvData.phone || "N/A"}`);
+        addLine(children, `LinkedIn: ${safeCvData.linkedin || "N/A"}`);
+
+        addHeading(children, "Skills:");
+        addList(children, normalizeArray(safeCvData.skills));
+
+        addHeading(children, "Certifications:");
+        addList(children, toWordLines(safeCvData.certifications));
+
+        addHeading(children, "Awards:");
+        addList(children, toWordLines(safeCvData.awards));
+
+        addHeading(children, "Profile Summary:");
+        addLine(children, safeCvData.summary || "N/A");
+
+        addHeading(children, "Work Experience:");
+        addList(children, toWordLines(safeCvData.workExperience));
+
+        addHeading(children, "Volunteer Experience:");
+        addList(children, toWordLines(safeCvData.volunteerExperience));
+
+        addHeading(children, "Education:");
+        if (normalizeArray(safeCvData.education).length === 0) {
+            addLine(children, "N/A");
+        } else {
+            normalizeArray(safeCvData.education).forEach((edu) => {
+                addLine(
+                    children,
+                    `Degree: ${edu.degree || "N/A"} | School: ${edu.school || "N/A"} | Location: ${
+                        edu.location || "N/A"
+                    } | Dates: ${edu.startDate || "N/A"} - ${edu.endDate || "N/A"}`
+                );
+
+                if (edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo)) {
+                    addLine(children, `Details: ${stripHtml(edu.additionalInfo)}`);
+                }
+            });
+        }
+
+        addHeading(children, "Projects:");
+        addList(children, toWordLines(safeCvData.projects));
+
         const doc = new Document({
             sections: [
                 {
-                    children: [
-                        new Paragraph({
-                            children: [
-                                new TextRun({
-                                    text: `Name: ${cvData.name}`,
-                                    bold: true
-                                })
-                            ]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(`Email: ${cvData.email}`)]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(`Phone: ${cvData.phone}`)]
-                        }),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Skills:", bold: true })
-                            ]
-                        }),
-                        // Map over skills array
-                        ...cvData.skills.map((skill) =>
-                            new Paragraph({ children: [new TextRun(skill)] })
-                        ),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Certifications:", bold: true })
-                            ]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(cvData.certifications || "N/A")]
-                        }),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Awards:", bold: true })
-                            ]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(cvData.awards || "N/A")]
-                        }),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Interests:", bold: true })
-                            ]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(cvData.interests || "N/A")]
-                        }),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Profile Summary:", bold: true })
-                            ]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(cvData.summary || "N/A")]
-                        }),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Work Experience:", bold: true })
-                            ]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(cvData.workExperience || "N/A")]
-                        }),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Education:", bold: true })
-                            ]
-                        }),
-                        // Map over each education entry
-                        ...cvData.education.map((edu) =>
-                            new Paragraph({
-                                children: [
-                                    new TextRun(
-                                        `Degree: ${edu.degree} | School: ${edu.school} | Location: ${edu.location} | Dates: ${edu.startDate} - ${edu.endDate}`
-                                    ),
-                                    // Note: For simplicity, we're not parsing the additionalInfo HTML into rich formatting.
-                                    // You could choose to strip HTML tags or use a converter.
-                                ]
-                            })
-                        ),
-                        new Paragraph({
-                            children: [
-                                new TextRun({ text: "Projects:", bold: true })
-                            ]
-                        }),
-                        new Paragraph({
-                            children: [new TextRun(cvData.projects || "N/A")]
-                        })
-                    ]
+                    children
                 }
             ]
         });
@@ -139,6 +396,7 @@ exports.exportWord = async (req, res) => {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "Content-Disposition": "attachment; filename=OnClickCV.docx"
         });
+
         return res.send(buffer);
     } catch (err) {
         console.error("Error generating Word doc:", err);
@@ -146,115 +404,11 @@ exports.exportWord = async (req, res) => {
     }
 };
 
-// Fixed version of the generateHTML function with the error removed
-function generateHTML(cvData, template) {
-    const {
-        name,
-        email,
-        phone,
-        summary,
-        workExperience,
-        education,
-        skills,
-        projects,
-        certifications,
-        awards,
-        interests
-    } = cvData;
-
-    // Define style blocks for the two templates
-    const styleTemplateA = `
-    <style>
-      body { font-family: Arial, sans-serif; margin: 20px; }
-      .container { display: flex; }
-      .left-column { width: 35%; padding-right: 15px; }
-      .right-column { width: 65%; }
-      .section-title { font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
-      p { margin: 5px 0; }
-      ul { margin: 5px 0; padding-left: 20px; }
-    </style>
-  `;
-    const styleTemplateB = `
-    <style>
-      body { font-family: "Open Sans", sans-serif; margin: 20px; color: #333; }
-      .container { display: flex; }
-      .left-column { width: 35%; background: #eff6fc; padding: 10px; margin-right: 15px; }
-      .right-column { width: 65%; padding: 10px; }
-      .section-title { font-weight: bold; color: #007acc; margin-top: 15px; border-bottom: 1px solid #007acc; padding-bottom: 3px; }
-      p { margin: 5px 0; }
-      ul { margin: 5px 0; padding-left: 20px; }
-    </style>
-  `;
-
-    const chosenStyle = template === "B" ? styleTemplateB : styleTemplateA;
-
-    // Create HTML for skills as a list
-    const skillsHTML =
-        skills && skills.length > 0
-            ? `<ul>${skills.map((skill) => `<li>${skill}</li>`).join("")}</ul>`
-            : `<p>N/A</p>`;
-
-    // Create HTML for education entries
-    const educationHTML =
-        education && education.length > 0
-            ? education
-                .map((edu) => {
-                    return `
-            <div style="margin-bottom:10px;">
-              <p><strong>Degree:</strong> ${edu.degree || 'N/A'}</p>
-              <p><strong>School:</strong> ${edu.school || 'N/A'}</p>
-              <p><strong>Location:</strong> ${edu.location || 'N/A'}</p>
-              <p><strong>Dates:</strong> ${edu.startDate || 'N/A'} - ${edu.endDate || 'N/A'}</p>
-              ${edu.additionalInfo
-                            ? `<div><strong>Details:</strong><div style="margin-top:5px;">${edu.additionalInfo}</div></div>`
-                            : ""
-                        }
-            </div>
-            `;
-                })
-                .join("")
-            : `<p>N/A</p>`;
-
-    // Construct the full HTML string - removed the 'r' character that was causing the error
-    return `
-  <html>
-    <head>
-      <meta charset="UTF-8" />
-      ${chosenStyle}
-    </head>
-    <body>
-      <div class="container">
-        <div class="left-column">
-          <h3 class="section-title">Personal Info</h3>
-          <p><strong>Name:</strong> ${name || 'N/A'}</p>
-          <p><strong>Email:</strong> ${email || 'N/A'}</p>
-          <p><strong>Phone:</strong> ${phone || 'N/A'}</p>
-          <h3 class="section-title">Skills</h3>
-          ${skillsHTML}
-          <h3 class="section-title">Certifications</h3>
-          <p>${certifications || "N/A"}</p>
-          <h3 class="section-title">Awards</h3>
-          <p>${awards || "N/A"}</p>
-          <h3 class="section-title">Interests</h3>
-          <p>${interests || "N/A"}</p>
-        </div>
-        <div class="right-column">
-          <h3 class="section-title">Profile Summary</h3>
-          <p>${summary || "N/A"}</p>
-          <h3 class="section-title">Work Experience</h3>
-          <p>${workExperience || "N/A"}</p>
-          <h3 class="section-title">Education</h3>
-          ${educationHTML}
-          <h3 class="section-title">Projects</h3>
-          <p>${projects || "N/A"}</p>
-        </div>
-      </div>
-    </body>
-  </html>
-`;
-}
-
 module.exports = {
-    exportPDF: exports.exportPDF,
-    exportWord: exports.exportWord
+    exportPDF,
+    exportWord,
+    generateHTML,
+    buildTemplateStyles,
+    renderRichEntries,
+    renderEducationEntries
 };

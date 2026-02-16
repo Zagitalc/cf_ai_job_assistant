@@ -1,40 +1,100 @@
 .preview-container.template-B {
-    display: flex;
-    border: 2px solid #007acc;
-    padding: 15px;
-    font-family: "Open Sans", sans-serif;
-    background-color: #f9f9f9;
-    color: #333;
-    max-width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 2.5fr;
+    min-height: 1000px;
     width: 100%;
+    max-width: 100%;
+    background: #ffffff;
+    color: #111827;
+    font-family: "Roboto", "Helvetica", sans-serif;
+    border: 1px solid #c7d2fe;
     box-sizing: border-box;
 }
 
 .preview-container.template-B .left-column,
 .preview-container.template-B .right-column {
-    word-break: break-word;
-    overflow-wrap: break-word;
-    white-space: normal;
+    min-width: 0;
     box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .preview-container.template-B .left-column {
-    width: 35%;
-    min-width: 0;
-    background-color: #eff6fc;
-    padding: 10px;
-    margin-right: 15px;
+    background: linear-gradient(180deg, #1f3b63 0%, #11243f 100%);
+    color: #f8fafc;
+    padding: 26px 22px;
 }
 
 .preview-container.template-B .right-column {
-    width: 65%;
-    min-width: 0;
-    padding: 10px;
+    background: #ffffff;
+    color: #111827;
+    padding: 30px;
 }
 
 .preview-container.template-B h3 {
-    color: #007acc;
-    margin-top: 10px;
-    border-bottom: 1px solid #007acc;
-    padding-bottom: 3px;
+    margin: 0 0 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-bottom: 6px;
+}
+
+.preview-container.template-B .left-column h3 {
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+.preview-container.template-B .right-column h3 {
+    color: #1f3b63;
+    border-bottom: 2px solid #1f3b63;
+}
+
+.preview-container.template-B .preview-list,
+.preview-container.template-B .preview-rich-list,
+.preview-container.template-B .preview-personal-block,
+.preview-container.template-B .preview-text-block,
+.preview-container.template-B .preview-empty,
+.preview-container.template-B .preview-education-entry {
+    margin-bottom: 18px;
+}
+
+.preview-container.template-B .preview-list {
+    margin: 0 0 18px;
+    padding-left: 20px;
+}
+
+.preview-container.template-B .preview-list li,
+.preview-container.template-B .preview-rich-entry {
+    margin-bottom: 8px;
+}
+
+.preview-container.template-B .preview-label {
+    font-weight: 700;
+}
+
+.preview-container.template-B .preview-empty {
+    color: #94a3b8;
+}
+
+.preview-container.template-B .preview-education-school {
+    font-weight: 700;
+}
+
+.preview-container.template-B .preview-education-dates {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin: 4px 0;
+}
+
+@media (max-width: 900px) {
+    .preview-container.template-B {
+        grid-template-columns: 1fr;
+        min-height: 0;
+    }
+
+    .preview-container.template-B .left-column,
+    .preview-container.template-B .right-column {
+        padding: 18px;
+    }
 }
