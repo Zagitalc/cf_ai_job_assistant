@@ -29,16 +29,43 @@ Alternatively, if you already have the code downloaded, skip this step.
 Navigate to the project directories and install the required dependencies:
 
 ```bash
-# Navigate to backend folder
-cd server
-npm install
+# Install backend and frontend dependencies
+cd server && npm install
+cd ../client && npm install
 
-# Navigate back to root folder, then to frontend folder
-cd ../client
-npm install
+# Back to project root
+cd ..
 ```
 
-### Step 3: Set up Tailwind CSS (Frontend)
+### Step 3: One-click start (recommended)
+
+Run both backend and frontend with a single command from the project root:
+
+```bash
+npm run dev
+```
+
+This script:
+- Checks that ports `4000` (backend) and `3000` (frontend) are free
+- Starts backend first
+- Waits until backend is listening
+- Starts frontend second
+
+### Step 4: Manual start (fallback)
+
+If you prefer running each app separately:
+
+```bash
+# Terminal 1
+cd server
+npm start
+
+# Terminal 2
+cd client
+npm start
+```
+
+### Step 5: Set up Tailwind CSS (Frontend)
 
 Tailwind CSS is already configured in this project. If you need to set it up again or want to understand the process, follow these steps **inside the `client` folder**:
 
@@ -75,29 +102,7 @@ In `src/index.css`, ensure you have only:
 
 You can now use Tailwind utility classes throughout your React components.
 
-### Step 4: Run the Backend
-
-Start the backend server first:
-
-```bash
-# In the /server directory
-npm start
-```
-
-The backend server runs by default on `http://localhost:4000`
-
-### Step 5: Run the Frontend (React)
-
-Open another terminal window, navigate to the client directory, and run the frontend React app:
-
-```bash
-# In the /client directory
-npm start
-```
-
-The frontend runs by default on `http://localhost:3000`. 
-
-Your browser should automatically open at this URL.
+The backend server runs by default on `http://localhost:4000`, and the frontend runs on `http://localhost:3000`.
 
 ## Usage
 
@@ -131,8 +136,9 @@ OnClickCV
 
 ## Troubleshooting
 
-- Ensure your backend is running before starting your frontend.
-- If encountering issues, verify ports (`4000` backend, `3000` frontend) are not occupied.
+- Why backend first? Frontend calls backend endpoints at `http://localhost:4000` directly (see `client/src/App.js`). If backend is not up, requests fail.
+- Recommended: use `npm run dev` from root so startup order is handled automatically.
+- If issues persist, verify ports (`4000` backend, `3000` frontend) are not occupied.
 
 ## Dependencies Used
 
