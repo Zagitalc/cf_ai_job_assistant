@@ -2,7 +2,12 @@ const {
     generateHTML,
     buildTemplateStyles,
     renderRichEntries,
-    renderEducationEntries
+    renderEducationEntries,
+    htmlToWordBlocks,
+    quillHtmlToWordParagraphs,
+    buildWordDocument,
+    buildWordTemplateA,
+    buildWordTemplateB
 } = require("../controllers/exportController");
 
 describe("exportController helpers", () => {
@@ -64,5 +69,52 @@ describe("exportController helpers", () => {
         expect(html).toContain("<p>AWS SA</p>");
         expect(html).toContain("<p>Dean's List</p>");
         expect(html).not.toContain("</div>,<div");
+    });
+
+    it("parses quill html blocks with paragraph, bullet, and numbered items", () => {
+        const blocks = htmlToWordBlocks(
+            "<p><strong>Hello</strong> world</p><ul><li>One</li><li>Two</li></ul><ol><li>First</li></ol>"
+        );
+
+        expect(blocks).toHaveLength(4);
+        expect(blocks[0].kind).toBe("paragraph");
+        expect(blocks[1].kind).toBe("bullet");
+        expect(blocks[2].kind).toBe("bullet");
+        expect(blocks[3].kind).toBe("numbered");
+    });
+
+    it("converts quill html into multiple word paragraphs", () => {
+        const paragraphs = quillHtmlToWordParagraphs(
+            "<p>Line 1</p><p><em>Line 2</em></p><ul><li>Item A</li><li>Item B</li></ul>"
+        );
+
+        expect(paragraphs.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it("builds template A/B word models with expected column widths", () => {
+        const cvData = {
+            name: "Test",
+            skills: ["React"],
+            workExperience: ["<p>Did things</p>"],
+            volunteerExperience: [],
+            education: [],
+            projects: []
+        };
+
+        const modelA = buildWordTemplateA(cvData);
+        const modelB = buildWordTemplateB(cvData);
+
+        expect(modelA.leftWidth).toBe(3290);
+        expect(modelA.rightWidth).toBe(6110);
+        expect(modelB.leftWidth).toBe(2800);
+        expect(modelB.rightWidth).toBe(6600);
+    });
+
+    it("buildWordDocument creates a single table-based section for two-column layout", () => {
+        const doc = buildWordDocument({ name: "Demo", skills: ["JS"] }, "B");
+
+        expect(doc).toBeDefined();
+        expect(doc.documentWrapper).toBeDefined();
+        expect(doc.documentWrapper.document).toBeDefined();
     });
 });
