@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import CVForm from "./components/CVForm";
 import CVPreview from "./components/CVPreview";
 import { TEMPLATE_OPTIONS } from "./constants/templates";
@@ -43,9 +43,15 @@ function App() {
 
     const [template, setTemplate] = useState("A");
     const [isExporting, setIsExporting] = useState(false);
+    const [exportingFormat, setExportingFormat] = useState("");
     const [exportError, setExportError] = useState(null);
     const [theme, setTheme] = useState(getInitialTheme);
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
+    const [layoutMetrics, setLayoutMetrics] = useState({
+        totalPages: 1,
+        sectionHeights: {},
+        pageContentHeight: 1075
+    });
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
@@ -54,6 +60,7 @@ function App() {
 
     const handleExport = async (format) => {
         setIsExporting(true);
+        setExportingFormat(format);
         setExportError(null);
 
         try {
@@ -80,6 +87,7 @@ function App() {
             setExportError(`Failed to export ${format.toUpperCase()}: ${error.message}`);
         } finally {
             setIsExporting(false);
+            setExportingFormat("");
         }
     };
 
@@ -124,6 +132,10 @@ function App() {
         setShowPreviewMobile((prev) => !prev);
     };
 
+    const handleLayoutMetricsChange = useCallback((metrics) => {
+        setLayoutMetrics(metrics);
+    }, []);
+
     return (
         <div className="app-shell">
             <header className="app-header no-print">
@@ -165,9 +177,11 @@ function App() {
                             templateOptions={TEMPLATE_OPTIONS}
                             onExport={handleExport}
                             isExporting={isExporting}
+                            exportingFormat={exportingFormat}
                             exportError={exportError}
                             onSave={handleSaveCV}
                             onLoad={handleLoadCV}
+                            layoutMetrics={layoutMetrics}
                         />
                     </div>
 
@@ -175,12 +189,23 @@ function App() {
                         data-testid="preview-panel"
                         className={`app-preview-panel ${showPreviewMobile ? "" : "mobile-hide"}`}
                     >
-                        <div className="a4-preview cv-preview-paper">
-                            <CVPreview cvData={cvData} template={template} />
-                        </div>
+                        <CVPreview
+                            cvData={cvData}
+                            template={template}
+                            onLayoutMetricsChange={handleLayoutMetricsChange}
+                        />
                     </div>
                 </div>
             </main>
+
+            <button
+                type="button"
+                onClick={togglePreviewMobile}
+                className="mobile-floating-toggle no-print"
+                aria-label={showPreviewMobile ? "Show CV form" : "Show CV preview"}
+            >
+                {showPreviewMobile ? "Edit" : "Preview"}
+            </button>
         </div>
     );
 }

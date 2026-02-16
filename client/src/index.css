@@ -149,17 +149,7 @@ body {
     align-items: flex-start;
     justify-content: center;
     padding-top: 2px;
-}
-
-.a4-preview {
-    width: 794px;
-    min-height: 1123px;
-    max-width: 100%;
-    padding: 24px;
-    border: 1px solid #d1d5db;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
-    background: #ffffff;
-    overflow-x: hidden;
+    min-height: 100%;
 }
 
 .cv-preview-paper {
@@ -179,6 +169,81 @@ body {
     box-sizing: border-box;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.preview-root {
+    width: 100%;
+    position: relative;
+}
+
+.preview-pages {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
+}
+
+.preview-page-shell {
+    width: 100%;
+    max-width: 794px;
+    position: relative;
+}
+
+.preview-page {
+    width: 794px;
+    min-height: 1123px;
+    max-width: 100%;
+    padding: 24px;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+    background: #ffffff;
+}
+
+.preview-measure-layer {
+    position: absolute;
+    left: -99999px;
+    top: 0;
+    width: 794px;
+    visibility: hidden;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.preview-measure {
+    width: 794px;
+    min-height: 1123px;
+    padding: 24px;
+}
+
+.page-break-label {
+    position: absolute;
+    top: -12px;
+    right: 10px;
+    background: #f59e0b;
+    color: #ffffff;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+}
+
+.page-break-guide {
+    margin-top: 10px;
+    border-top: 2px dashed #f59e0b;
+    position: relative;
+    height: 0;
+}
+
+.page-break-guide span {
+    position: absolute;
+    right: 0;
+    top: -14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #9a3412;
+    background: color-mix(in srgb, #f59e0b 16%, #ffffff);
+    padding: 0 6px;
 }
 
 .cv-form {
@@ -250,6 +315,29 @@ body {
     color: var(--text-secondary);
 }
 
+.form-meta {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.form-warning {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #b45309;
+    background: color-mix(in srgb, #f59e0b 14%, transparent);
+    border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
+    border-radius: 8px;
+    padding: 6px 8px;
+}
+
+.warning-list {
+    margin: 8px 0 0;
+    padding-left: 16px;
+    color: #b45309;
+    font-size: 0.78rem;
+}
+
 .form-input,
 .form-textarea,
 .form-select {
@@ -298,6 +386,21 @@ body {
 .primary-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+.btn-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: #ffffff;
+    animation: spin 0.8s linear infinite;
 }
 
 .form-error {
@@ -433,6 +536,20 @@ body {
     stroke: var(--text-secondary);
 }
 
+.mobile-floating-toggle {
+    display: none;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @media (min-width: 720px) {
     .form-grid.two-col {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -463,14 +580,46 @@ body {
         width: 100%;
     }
 
-    .a4-preview {
-        width: 100%;
-        min-height: 0;
-        padding: 12px;
-    }
-
     .mobile-hide {
         display: none !important;
+    }
+
+    .preview-pages {
+        gap: 16px;
+    }
+
+    .preview-page-shell,
+    .preview-page,
+    .preview-measure,
+    .preview-measure-layer {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .preview-page {
+        min-height: 0;
+        padding: 14px;
+    }
+
+    .mobile-floating-toggle {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 50;
+        border: none;
+        background: var(--btn-primary);
+        color: var(--btn-text);
+        border-radius: 999px;
+        padding: 11px 16px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        box-shadow: 0 10px 18px rgba(15, 23, 42, 0.25);
+        display: inline-flex;
+        cursor: pointer;
+    }
+
+    .mobile-floating-toggle:hover {
+        background: var(--btn-primary-hover);
     }
 }
 
@@ -495,12 +644,19 @@ body {
         display: block !important;
     }
 
-    .a4-preview,
+    .preview-pages,
+    .preview-page-shell,
+    .preview-page,
     .cv-preview-paper {
         width: 100% !important;
         min-height: 0 !important;
         border: none !important;
         box-shadow: none !important;
         padding: 0 !important;
+    }
+
+    .page-break-label,
+    .page-break-guide {
+        display: none !important;
     }
 }

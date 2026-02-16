@@ -48,9 +48,15 @@ const FormHarness = () => {
             templateOptions={templateOptions}
             onExport={() => {}}
             isExporting={false}
+            exportingFormat=""
             exportError={null}
             onSave={() => {}}
             onLoad={() => {}}
+            layoutMetrics={{
+                totalPages: 1,
+                sectionHeights: {},
+                pageContentHeight: 1075
+            }}
         />
     );
 };
@@ -131,5 +137,62 @@ describe("CVForm", () => {
             (node) => node.textContent === "React"
         );
         expect(removedChip).toBeUndefined();
+    });
+
+    it("shows live summary word counter", () => {
+        const summaryToggle = getButtonByText(container, /profile summary/i);
+        act(() => {
+            Simulate.click(summaryToggle);
+        });
+
+        const summaryInput = container.querySelector("#cv-summary");
+        expect(summaryInput).not.toBeNull();
+
+        act(() => {
+            Simulate.change(summaryInput, { target: { name: "summary", value: "One two three four" } });
+        });
+
+        expect(container.textContent).toContain("Words: 4");
+    });
+
+    it("shows section overflow warning from layout metrics", () => {
+        const OverflowHarness = () => {
+            const [cvData, setCvData] = useState(baseCvData);
+            return (
+                <CVForm
+                    cvData={cvData}
+                    setCvData={setCvData}
+                    template="A"
+                    setTemplate={() => {}}
+                    templateOptions={templateOptions}
+                    onExport={() => {}}
+                    isExporting={false}
+                    exportingFormat=""
+                    exportError={null}
+                    onSave={() => {}}
+                    onLoad={() => {}}
+                    layoutMetrics={{
+                        totalPages: 2,
+                        sectionHeights: { summary: 900 },
+                        pageContentHeight: 1000
+                    }}
+                />
+            );
+        };
+
+        act(() => {
+            root.unmount();
+            root = createRoot(container);
+            root.render(<OverflowHarness />);
+        });
+
+        const summaryToggle = getButtonByText(container, /profile summary/i);
+        act(() => {
+            Simulate.click(summaryToggle);
+        });
+
+        expect(container.textContent).toContain(
+            "This section is getting long; consider condensing for a 1-page CV."
+        );
     });
 });

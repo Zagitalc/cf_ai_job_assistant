@@ -26,6 +26,56 @@ const Section = ({ title, isOpen, onToggle, children }) => (
 
 const isRichTextEmpty = (value) => !value || value === "<p><br></p>" || value.trim() === "";
 
+const stripHtml = (value = "") =>
+    String(value)
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const countWords = (value = "") =>
+    String(value)
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+
+const countRichTextWords = (value = "") => countWords(stripHtml(value));
+
+const formatDateShort = (dateString) => {
+    if (!dateString) {
+        return "";
+    }
+
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) {
+        return String(dateString);
+    }
+
+    return parsed.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric"
+    });
+};
+
+const formatDateRange = (startDate, endDate) => {
+    const start = formatDateShort(startDate);
+    const end = formatDateShort(endDate);
+
+    if (!start && !end) {
+        return "N/A";
+    }
+
+    if (start && end) {
+        return `${start} - ${end}`;
+    }
+
+    if (start) {
+        return `${start} - Present`;
+    }
+
+    return end || "N/A";
+};
+
 const CVForm = ({
     cvData,
     setCvData,
@@ -34,9 +84,11 @@ const CVForm = ({
     templateOptions,
     onExport,
     isExporting,
+    exportingFormat,
     exportError,
     onSave,
-    onLoad
+    onLoad,
+    layoutMetrics
 }) => {
     const [newSkill, setNewSkill] = useState("");
     const [newCert, setNewCert] = useState("");
@@ -59,6 +111,38 @@ const CVForm = ({
         templateOptions && templateOptions.length > 0
             ? templateOptions
             : FALLBACK_TEMPLATE_OPTIONS;
+
+    const getSectionOverflowWarning = (sectionKey) => {
+        const sectionHeight = layoutMetrics?.sectionHeights?.[sectionKey] || 0;
+        const pageContentHeight = layoutMetrics?.pageContentHeight || 0;
+        const threshold = pageContentHeight * 0.7;
+
+        if (sectionHeight > threshold && threshold > 0) {
+            return "This section is getting long; consider condensing for a 1-page CV.";
+        }
+
+        return "";
+    };
+
+    const getLongEntryWarnings = (entries, label) =>
+        (entries || [])
+            .map((entry, index) => ({ index, words: countRichTextWords(entry) }))
+            .filter((entry) => entry.words > 60)
+            .map((entry) => `${label} ${entry.index + 1} is ${entry.words} words. Aim for 30-60 words.`);
+
+    const summaryWordCount = countWords(cvData.summary || "");
+    const newWorkWordCount = countRichTextWords(newWork);
+    const newVolunteerWordCount = countRichTextWords(newVolunteer);
+    const newProjectWordCount = countRichTextWords(newProject);
+    const newCertWordCount = countRichTextWords(newCert);
+    const newAwardWordCount = countRichTextWords(newAward);
+    const newEducationInfoWordCount = countRichTextWords(newEdu.additionalInfo || "");
+
+    const workWarnings = getLongEntryWarnings(cvData.workExperience, "Work entry");
+    const volunteerWarnings = getLongEntryWarnings(cvData.volunteerExperience, "Volunteer entry");
+    const projectWarnings = getLongEntryWarnings(cvData.projects, "Project entry");
+    const certificationWarnings = getLongEntryWarnings(cvData.certifications, "Certification entry");
+    const awardWarnings = getLongEntryWarnings(cvData.awards, "Award entry");
 
     const toggleSection = (sectionId) => {
         setOpenSection((currentSection) => (currentSection === sectionId ? "" : sectionId));
@@ -233,6 +317,9 @@ const CVForm = ({
                 isOpen={openSection === "personal"}
                 onToggle={() => toggleSection("personal")}
             >
+                {getSectionOverflowWarning("personal") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("personal")}</div>
+                ) : null}
                 <div className="form-grid two-col">
                     <div>
                         <label htmlFor="cv-name" className="form-label">Name</label>
@@ -286,6 +373,9 @@ const CVForm = ({
                 isOpen={openSection === "summary"}
                 onToggle={() => toggleSection("summary")}
             >
+                {getSectionOverflowWarning("summary") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("summary")}</div>
+                ) : null}
                 <label htmlFor="cv-summary" className="form-label">Profile Summary</label>
                 <textarea
                     id="cv-summary"
@@ -296,6 +386,7 @@ const CVForm = ({
                     rows={4}
                     className="form-textarea"
                 />
+                <div className="form-meta">Words: {summaryWordCount}</div>
             </Section>
 
             <Section
@@ -303,6 +394,9 @@ const CVForm = ({
                 isOpen={openSection === "work"}
                 onToggle={() => toggleSection("work")}
             >
+                {getSectionOverflowWarning("work") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("work")}</div>
+                ) : null}
                 <label className="form-label">Add Work Experience</label>
                 <ReactQuill
                     theme="snow"
@@ -310,6 +404,12 @@ const CVForm = ({
                     onChange={setNewWork}
                     placeholder="Describe your work experience..."
                 />
+                <div className="form-meta">Current draft words: {newWorkWordCount}</div>
+                {newWorkWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newWorkWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
                 <button type="button" onClick={handleAddWork} className="add-btn">Add Work Experience</button>
                 {(cvData.workExperience || []).length > 0 && (
                     <div className="entry-list">
@@ -328,6 +428,13 @@ const CVForm = ({
                         ))}
                     </div>
                 )}
+                {workWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {workWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                        ))}
+                    </ul>
+                ) : null}
             </Section>
 
             <Section
@@ -335,6 +442,9 @@ const CVForm = ({
                 isOpen={openSection === "volunteer"}
                 onToggle={() => toggleSection("volunteer")}
             >
+                {getSectionOverflowWarning("volunteer") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("volunteer")}</div>
+                ) : null}
                 <label className="form-label">Add Volunteer Experience</label>
                 <ReactQuill
                     theme="snow"
@@ -342,6 +452,12 @@ const CVForm = ({
                     onChange={setNewVolunteer}
                     placeholder="Describe your volunteer experience..."
                 />
+                <div className="form-meta">Current draft words: {newVolunteerWordCount}</div>
+                {newVolunteerWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newVolunteerWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
                 <button type="button" onClick={handleAddVolunteer} className="add-btn">Add Volunteer Experience</button>
                 {(cvData.volunteerExperience || []).length > 0 && (
                     <div className="entry-list">
@@ -360,6 +476,13 @@ const CVForm = ({
                         ))}
                     </div>
                 )}
+                {volunteerWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {volunteerWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                        ))}
+                    </ul>
+                ) : null}
             </Section>
 
             <Section
@@ -367,6 +490,9 @@ const CVForm = ({
                 isOpen={openSection === "projects"}
                 onToggle={() => toggleSection("projects")}
             >
+                {getSectionOverflowWarning("projects") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("projects")}</div>
+                ) : null}
                 <label className="form-label">Add a Project</label>
                 <ReactQuill
                     theme="snow"
@@ -374,6 +500,12 @@ const CVForm = ({
                     onChange={setNewProject}
                     placeholder="Describe your project..."
                 />
+                <div className="form-meta">Current draft words: {newProjectWordCount}</div>
+                {newProjectWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newProjectWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
                 <button type="button" onClick={handleAddProject} className="add-btn">Add Project</button>
                 {(cvData.projects || []).length > 0 && (
                     <div className="entry-list">
@@ -392,6 +524,13 @@ const CVForm = ({
                         ))}
                     </div>
                 )}
+                {projectWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {projectWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                        ))}
+                    </ul>
+                ) : null}
             </Section>
 
             <Section
@@ -399,6 +538,9 @@ const CVForm = ({
                 isOpen={openSection === "skills"}
                 onToggle={() => toggleSection("skills")}
             >
+                {getSectionOverflowWarning("skills") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("skills")}</div>
+                ) : null}
                 <label htmlFor="new-skill" className="form-label">Add a Skill</label>
                 <div className="skill-input-row">
                     <input
@@ -434,6 +576,9 @@ const CVForm = ({
                 isOpen={openSection === "education"}
                 onToggle={() => toggleSection("education")}
             >
+                {getSectionOverflowWarning("education") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("education")}</div>
+                ) : null}
                 <div className="form-grid two-col">
                     <div>
                         <label htmlFor="edu-degree" className="form-label">Degree</label>
@@ -501,6 +646,12 @@ const CVForm = ({
                         onChange={handleAdditionalInfoChange}
                         placeholder="Optional details, honors, relevant coursework..."
                     />
+                    <div className="form-meta">Current draft words: {newEducationInfoWordCount}</div>
+                    {newEducationInfoWordCount > 60 ? (
+                        <div className="form-warning">
+                            This draft is {newEducationInfoWordCount} words. Aim for 30-60 words per entry.
+                        </div>
+                    ) : null}
                 </div>
                 <button type="button" onClick={handleAddEducation} className="add-btn">Add Education</button>
 
@@ -520,7 +671,7 @@ const CVForm = ({
                                 <div>{edu.degree || "N/A"}</div>
                                 <div>{edu.location || "N/A"}</div>
                                 <div className="education-dates">
-                                    {edu.startDate || "N/A"}{edu.startDate && edu.endDate ? " - " : ""}{edu.endDate || ""}
+                                    {formatDateRange(edu.startDate, edu.endDate)}
                                 </div>
                                 {edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo) && (
                                     <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
@@ -536,6 +687,9 @@ const CVForm = ({
                 isOpen={openSection === "certifications"}
                 onToggle={() => toggleSection("certifications")}
             >
+                {getSectionOverflowWarning("certifications") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("certifications")}</div>
+                ) : null}
                 <label className="form-label">Add a Certification</label>
                 <ReactQuill
                     theme="snow"
@@ -543,6 +697,12 @@ const CVForm = ({
                     onChange={setNewCert}
                     placeholder="e.g. AWS Certified Solutions Architect"
                 />
+                <div className="form-meta">Current draft words: {newCertWordCount}</div>
+                {newCertWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newCertWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
                 <button type="button" onClick={handleAddCert} className="add-btn">Add Certification</button>
                 {(cvData.certifications || []).length > 0 && (
                     <div className="entry-list">
@@ -561,6 +721,13 @@ const CVForm = ({
                         ))}
                     </div>
                 )}
+                {certificationWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {certificationWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                        ))}
+                    </ul>
+                ) : null}
             </Section>
 
             <Section
@@ -568,6 +735,9 @@ const CVForm = ({
                 isOpen={openSection === "awards"}
                 onToggle={() => toggleSection("awards")}
             >
+                {getSectionOverflowWarning("awards") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("awards")}</div>
+                ) : null}
                 <label className="form-label">Add an Award</label>
                 <ReactQuill
                     theme="snow"
@@ -575,6 +745,12 @@ const CVForm = ({
                     onChange={setNewAward}
                     placeholder="e.g. Dean's List 2022"
                 />
+                <div className="form-meta">Current draft words: {newAwardWordCount}</div>
+                {newAwardWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newAwardWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
                 <button type="button" onClick={handleAddAward} className="add-btn">Add Award</button>
                 {(cvData.awards || []).length > 0 && (
                     <div className="entry-list">
@@ -593,6 +769,13 @@ const CVForm = ({
                         ))}
                     </div>
                 )}
+                {awardWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {awardWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                        ))}
+                    </ul>
+                ) : null}
             </Section>
 
             <Section
@@ -621,7 +804,10 @@ const CVForm = ({
                         disabled={isExporting}
                         className="primary-btn"
                     >
-                        {isExporting ? "Exporting..." : "Export PDF"}
+                        <span className="btn-content">
+                            {isExporting && exportingFormat === "pdf" ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                            {isExporting && exportingFormat === "pdf" ? "Generating PDF..." : "Export PDF"}
+                        </span>
                     </button>
                     <button
                         type="button"
@@ -629,7 +815,10 @@ const CVForm = ({
                         disabled={isExporting}
                         className="primary-btn"
                     >
-                        {isExporting ? "Exporting..." : "Export Word"}
+                        <span className="btn-content">
+                            {isExporting && exportingFormat === "word" ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                            {isExporting && exportingFormat === "word" ? "Generating Word..." : "Export Word"}
+                        </span>
                     </button>
                 </div>
 

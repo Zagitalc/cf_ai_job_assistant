@@ -36,6 +36,48 @@ const decodeHtmlEntities = (value = "") =>
         .replace(/&#39;/g, "'")
         .replace(/&apos;/g, "'");
 
+const normalizeRichHtmlForExport = (value = "") =>
+    String(value || "")
+        .replace(/(\s*<p><br><\/p>\s*){2,}/gi, "<p><br></p>")
+        .replace(/(&nbsp;|\u00a0)+/gi, " ")
+        .replace(/(<br\s*\/?>(\s|&nbsp;)*)+$/gi, "")
+        .trim();
+
+const formatDateShort = (dateString) => {
+    if (!dateString) {
+        return "";
+    }
+
+    const parsedDate = new Date(dateString);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return String(dateString);
+    }
+
+    return parsedDate.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric"
+    });
+};
+
+const formatDateRange = (startDate, endDate) => {
+    const start = formatDateShort(startDate);
+    const end = formatDateShort(endDate);
+
+    if (!start && !end) {
+        return "N/A";
+    }
+
+    if (start && end) {
+        return `${start} - ${end}`;
+    }
+
+    if (start && !end) {
+        return `${start} - Present`;
+    }
+
+    return end || "N/A";
+};
+
 const formatPlainText = (value) => {
     if (!value) {
         return "N/A";
@@ -52,57 +94,54 @@ const renderSkillsList = (skills) => {
         .filter(Boolean);
 
     if (validSkills.length === 0) {
-        return '<div class="preview-empty">N/A</div>';
+        return '<div class="entry-block"><div class="preview-empty">N/A</div></div>';
     }
 
-    return `<ul class="preview-list">${validSkills.map((skill) => `<li>${skill}</li>`).join("")}</ul>`;
+    return `<div class="entry-block"><ul class="preview-list">${validSkills
+        .map((skill) => `<li>${skill}</li>`)
+        .join("")}</ul></div>`;
 };
 
 const renderRichEntries = (entries) => {
-    const validEntries = normalizeArray(entries).filter((entry) => !isRichTextEmpty(entry));
+    const validEntries = normalizeArray(entries)
+        .map((entry) => normalizeRichHtmlForExport(entry))
+        .filter((entry) => !isRichTextEmpty(entry));
 
     if (validEntries.length === 0) {
-        return '<div class="preview-empty">N/A</div>';
+        return '<div class="entry-block"><div class="preview-empty">N/A</div></div>';
     }
 
-    return `<div class="preview-rich-list">${validEntries
-        .map((entry) => `<div class="preview-rich-entry">${entry}</div>`)
-        .join("")}</div>`;
+    return validEntries
+        .map((entry) => `<div class="entry-block"><div class="preview-rich-entry">${entry}</div></div>`)
+        .join("");
 };
 
 const renderEducationEntries = (education) => {
     const validEntries = normalizeArray(education);
     if (validEntries.length === 0) {
-        return '<div class="preview-empty">N/A</div>';
+        return '<div class="entry-block"><div class="preview-empty">N/A</div></div>';
     }
 
-    return `<div class="preview-rich-list">${validEntries
+    return validEntries
         .map((edu) => {
-            const startDate = escapeHtml(edu.startDate || "");
-            const endDate = escapeHtml(edu.endDate || "");
-            const showDateRange = Boolean(startDate || endDate);
+            const dateRange = formatDateRange(edu.startDate, edu.endDate);
+            const normalizedAdditionalInfo = normalizeRichHtmlForExport(edu.additionalInfo || "");
 
             return `
-                <div class="preview-education-entry">
+                <div class="entry-block preview-education-entry">
                     <div class="preview-education-school">${escapeHtml(edu.school || "N/A")}</div>
                     <div>${escapeHtml(edu.degree || "N/A")}</div>
                     <div>${escapeHtml(edu.location || "N/A")}</div>
+                    <div class="preview-education-dates">${escapeHtml(dateRange)}</div>
                     ${
-                        showDateRange
-                            ? `<div class="preview-education-dates">${startDate}${
-                                  startDate && endDate ? " - " : ""
-                              }${endDate}</div>`
-                            : ""
-                    }
-                    ${
-                        edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo)
-                            ? `<div class="preview-rich-entry">${edu.additionalInfo}</div>`
+                        normalizedAdditionalInfo && !isRichTextEmpty(normalizedAdditionalInfo)
+                            ? `<div class="preview-rich-entry">${normalizedAdditionalInfo}</div>`
                             : ""
                     }
                 </div>
             `;
         })
-        .join("")}</div>`;
+        .join("");
 };
 
 const buildTemplateStyles = (template) => {
@@ -126,12 +165,20 @@ const buildTemplateStyles = (template) => {
                 overflow-wrap: anywhere;
             }
             .preview-list,
-            .preview-rich-list,
             .preview-personal-block,
             .preview-text-block,
             .preview-empty,
             .preview-education-entry {
                 margin-bottom: 16px;
+            }
+            .section-block,
+            .entry-block {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            h3 {
+                break-after: avoid;
+                page-break-after: avoid;
             }
             .preview-list {
                 margin-top: 0;
@@ -239,9 +286,6 @@ const generateHTML = (cvData, template) => {
         awards
     } = cvData || {};
 
-    const certificationEntries = normalizeArray(certifications).filter((entry) => !isRichTextEmpty(entry));
-    const awardEntries = normalizeArray(awards).filter((entry) => !isRichTextEmpty(entry));
-
     return `
         <html>
             <head>
@@ -251,41 +295,57 @@ const generateHTML = (cvData, template) => {
             <body>
                 <div class="preview-container template-${safeTemplate}">
                     <div class="left-column">
-                        <h3>Personal Info</h3>
-                        <div class="preview-personal-block">
-                            <div><span class="preview-label">Name:</span> ${formatPlainText(name)}</div>
-                            <div><span class="preview-label">Email:</span> ${formatPlainText(email)}</div>
-                            <div><span class="preview-label">Phone:</span> ${formatPlainText(phone)}</div>
-                            <div><span class="preview-label">LinkedIn:</span> ${formatPlainText(linkedin)}</div>
-                        </div>
+                        <section class="section-block">
+                            <h3>Personal Info</h3>
+                            <div class="entry-block preview-personal-block">
+                                <div><span class="preview-label">Name:</span> ${formatPlainText(name)}</div>
+                                <div><span class="preview-label">Email:</span> ${formatPlainText(email)}</div>
+                                <div><span class="preview-label">Phone:</span> ${formatPlainText(phone)}</div>
+                                <div><span class="preview-label">LinkedIn:</span> ${formatPlainText(linkedin)}</div>
+                            </div>
+                        </section>
 
-                        <h3>Skills</h3>
-                        ${renderSkillsList(skills)}
+                        <section class="section-block">
+                            <h3>Skills</h3>
+                            ${renderSkillsList(skills)}
+                        </section>
 
-                        ${
-                            certificationEntries.length > 0
-                                ? `<h3>Certifications</h3>${renderRichEntries(certificationEntries)}`
-                                : ""
-                        }
+                        <section class="section-block">
+                            <h3>Certifications</h3>
+                            ${renderRichEntries(certifications)}
+                        </section>
 
-                        ${awardEntries.length > 0 ? `<h3>Awards</h3>${renderRichEntries(awardEntries)}` : ""}
+                        <section class="section-block">
+                            <h3>Awards</h3>
+                            ${renderRichEntries(awards)}
+                        </section>
                     </div>
 
                     <div class="right-column">
-                        <h3>Profile Summary</h3>
-                        <div class="preview-text-block">${formatPlainText(summary)}</div>
+                        <section class="section-block">
+                            <h3>Profile Summary</h3>
+                            <div class="entry-block preview-text-block">${formatPlainText(summary)}</div>
+                        </section>
 
-                        <h3>Work Experience</h3>
-                        ${renderRichEntries(workExperience)}
+                        <section class="section-block">
+                            <h3>Work Experience</h3>
+                            ${renderRichEntries(workExperience)}
+                        </section>
 
-                        <h3>Volunteer Experience</h3>
-                        ${renderRichEntries(volunteerExperience)}
+                        <section class="section-block">
+                            <h3>Volunteer Experience</h3>
+                            ${renderRichEntries(volunteerExperience)}
+                        </section>
 
-                        <h3>Education</h3>
-                        ${renderEducationEntries(education)}
+                        <section class="section-block">
+                            <h3>Education</h3>
+                            ${renderEducationEntries(education)}
+                        </section>
 
-                        <h3>Projects</h3>
-                        ${renderRichEntries(projects)}
+                        <section class="section-block">
+                            <h3>Projects</h3>
+                            ${renderRichEntries(projects)}
+                        </section>
                     </div>
                 </div>
             </body>
@@ -400,7 +460,7 @@ const extractInnerTagContent = (html, tagName) => {
 };
 
 const htmlToWordBlocks = (html) => {
-    const source = String(html || "").trim();
+    const source = normalizeRichHtmlForExport(html);
     if (!source || isRichTextEmpty(source)) {
         return [];
     }
@@ -541,7 +601,9 @@ const createWordFallbackParagraph = (text = "N/A") =>
 const addWordSectionFromHtmlArray = (target, heading, entries, styleOptions = {}) => {
     target.push(createWordHeading(heading, styleOptions));
 
-    const validEntries = normalizeArray(entries).filter((entry) => !isRichTextEmpty(entry));
+    const validEntries = normalizeArray(entries)
+        .map((entry) => normalizeRichHtmlForExport(entry))
+        .filter((entry) => !isRichTextEmpty(entry));
     if (validEntries.length === 0) {
         target.push(createWordFallbackParagraph("N/A"));
         return;
@@ -611,6 +673,9 @@ const addWordEducation = (target, education, styleOptions = {}) => {
     }
 
     entries.forEach((edu, index) => {
+        const dateText = formatDateRange(edu.startDate, edu.endDate);
+        const normalizedAdditionalInfo = normalizeRichHtmlForExport(edu.additionalInfo || "");
+
         target.push(
             new Paragraph({
                 children: [new TextRun({ text: edu.school || "N/A", bold: true, size: 27 })],
@@ -625,19 +690,18 @@ const addWordEducation = (target, education, styleOptions = {}) => {
             target.push(createWordFallbackParagraph(edu.location));
         }
 
-        if (edu.startDate || edu.endDate) {
-            const dateText = `${edu.startDate || ""}${edu.startDate && edu.endDate ? " - " : ""}${edu.endDate || ""}`;
-            target.push(
-                new Paragraph({
-                    children: [new TextRun({ text: dateText || "N/A", color: "64748B" })],
-                    spacing: { after: 80 },
-                    keepLines: true
-                })
-            );
-        }
+        target.push(
+            new Paragraph({
+                children: [new TextRun({ text: dateText, color: "64748B" })],
+                spacing: { after: 80 },
+                keepLines: true
+            })
+        );
 
-        if (edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo)) {
-            quillHtmlToWordParagraphs(edu.additionalInfo).forEach((paragraph) => target.push(paragraph));
+        if (normalizedAdditionalInfo && !isRichTextEmpty(normalizedAdditionalInfo)) {
+            quillHtmlToWordParagraphs(normalizedAdditionalInfo).forEach((paragraph) =>
+                target.push(paragraph)
+            );
         }
 
         if (index < entries.length - 1) {
@@ -870,6 +934,9 @@ module.exports = {
     buildTemplateStyles,
     renderRichEntries,
     renderEducationEntries,
+    normalizeRichHtmlForExport,
+    formatDateShort,
+    formatDateRange,
     quillHtmlToWordParagraphs,
     htmlToWordBlocks,
     parseInlineHtmlToWordRuns,

@@ -1,6 +1,7 @@
 .preview-container.template-B {
     display: grid;
-    grid-template-columns: 1fr 2.5fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2.5fr);
+    align-items: stretch;
     min-height: 1000px;
     width: 100%;
     max-width: 100%;
@@ -23,6 +24,9 @@
     background: linear-gradient(180deg, #1f3b63 0%, #11243f 100%);
     color: #f8fafc;
     padding: 26px 22px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
 }
 
 .preview-container.template-B .right-column {
@@ -67,6 +71,8 @@
 .preview-container.template-B .preview-list li,
 .preview-container.template-B .preview-rich-entry {
     margin-bottom: 8px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .preview-container.template-B .preview-label {
