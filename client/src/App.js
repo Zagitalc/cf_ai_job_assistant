@@ -1,8 +1,28 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import CVForm from "./components/CVForm";
 import CVPreview from "./components/CVPreview";
+import { TEMPLATE_OPTIONS } from "./constants/templates";
 import "./index.css";
-import 'react-quill/dist/quill.snow.css';
+import "react-quill/dist/quill.snow.css";
+
+const THEME_STORAGE_KEY = "onclickcv.theme";
+
+const getInitialTheme = () => {
+    if (typeof window === "undefined") {
+        return "light";
+    }
+
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (storedTheme === "light" || storedTheme === "dark") {
+        return storedTheme;
+    }
+
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        return "dark";
+    }
+
+    return "light";
+};
 
 function App() {
     const [cvData, setCvData] = useState({
@@ -23,10 +43,24 @@ function App() {
 
     const [template, setTemplate] = useState("A");
     const [isExporting, setIsExporting] = useState(false);
+    const [exportingFormat, setExportingFormat] = useState("");
     const [exportError, setExportError] = useState(null);
+    const [theme, setTheme] = useState(getInitialTheme);
+    const [showPreviewMobile, setShowPreviewMobile] = useState(false);
+    const [layoutMetrics, setLayoutMetrics] = useState({
+        totalPages: 1,
+        sectionHeights: {},
+        pageContentHeight: 1075
+    });
+
+    useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }, [theme]);
 
     const handleExport = async (format) => {
         setIsExporting(true);
+        setExportingFormat(format);
         setExportError(null);
 
         try {
@@ -37,13 +71,15 @@ function App() {
                 body: JSON.stringify({ cvData, template })
             });
 
-            if (!response.ok) throw new Error(`${format.toUpperCase()} export failed`);
+            if (!response.ok) {
+                throw new Error(`${format.toUpperCase()} export failed`);
+            }
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = `OnClickCV.${format === 'pdf' ? 'pdf' : 'docx'}`;
+            link.download = `OnClickCV.${format === "pdf" ? "pdf" : "docx"}`;
             link.click();
             window.URL.revokeObjectURL(url);
         } catch (error) {
@@ -51,10 +87,10 @@ function App() {
             setExportError(`Failed to export ${format.toUpperCase()}: ${error.message}`);
         } finally {
             setIsExporting(false);
+            setExportingFormat("");
         }
     };
 
-    // Save CV to backend
     const handleSaveCV = async (userId) => {
         try {
             const response = await fetch("http://localhost:4000/api/cv/save", {
@@ -62,55 +98,114 @@ function App() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ cvData, userId })
             });
-            if (!response.ok) throw new Error("Failed to save CV");
+
+            if (!response.ok) {
+                throw new Error("Failed to save CV");
+            }
+
             alert("CV saved!");
         } catch (err) {
-            alert("Error saving CV: " + err.message);
+            alert(`Error saving CV: ${err.message}`);
         }
     };
 
-    // Load CV from backend
     const handleLoadCV = async (userId) => {
         try {
             const response = await fetch(`http://localhost:4000/api/cv/${userId}`);
-            if (!response.ok) throw new Error("CV not found");
+            if (!response.ok) {
+                throw new Error("CV not found");
+            }
+
             const data = await response.json();
             setCvData(data);
             alert("CV loaded!");
         } catch (err) {
-            alert("Error loading CV: " + err.message);
+            alert(`Error loading CV: ${err.message}`);
         }
     };
 
+    const toggleTheme = () => {
+        setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
+    };
+
+    const togglePreviewMobile = () => {
+        setShowPreviewMobile((prev) => !prev);
+    };
+
+    const handleLayoutMetricsChange = useCallback((metrics) => {
+        setLayoutMetrics(metrics);
+    }, []);
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="w-full py-6 border-b bg-white mb-8">
-                <h1 className="text-3xl font-bold text-center tracking-tight">OnClickCV</h1>
+        <div className="app-shell">
+            <header className="app-header no-print">
+                <div className="my-container app-header-inner">
+                    <h1 className="app-title">OnClickCV</h1>
+                    <div className="header-actions">
+                        <button
+                            type="button"
+                            onClick={togglePreviewMobile}
+                            className="mobile-toggle-btn"
+                            aria-pressed={showPreviewMobile}
+                            aria-label={showPreviewMobile ? "Show CV form" : "Show CV preview"}
+                        >
+                            {showPreviewMobile ? "Show Form" : "Show Preview"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            className="theme-toggle-btn"
+                            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+                        >
+                            {theme === "light" ? "Dark Mode" : "Light Mode"}
+                        </button>
+                    </div>
+                </div>
             </header>
+
             <main className="my-container">
-                <div className="flex flex-col lg:flex-row gap-8 w-full">
-                    <div className="w-full lg:w-1/2 bg-white rounded-lg shadow p-6 mb-8 lg:mb-0">
+                <div className="app-content">
+                    <div
+                        data-testid="form-panel"
+                        className={`app-form-panel ${showPreviewMobile ? "mobile-hide" : ""}`}
+                    >
                         <CVForm
                             cvData={cvData}
                             setCvData={setCvData}
                             template={template}
                             setTemplate={setTemplate}
+                            templateOptions={TEMPLATE_OPTIONS}
                             onExport={handleExport}
                             isExporting={isExporting}
+                            exportingFormat={exportingFormat}
                             exportError={exportError}
                             onSave={handleSaveCV}
                             onLoad={handleLoadCV}
+                            layoutMetrics={layoutMetrics}
                         />
                     </div>
-                    <div className="w-full lg:w-1/2 flex items-center justify-center">
-                        <div className="w-full">
-                            <div className="a4-preview">
-                                <CVPreview cvData={cvData} template={template} />
-                            </div>
-                        </div>
+
+                    <div
+                        data-testid="preview-panel"
+                        className={`app-preview-panel ${showPreviewMobile ? "" : "mobile-hide"}`}
+                    >
+                        <CVPreview
+                            cvData={cvData}
+                            template={template}
+                            onLayoutMetricsChange={handleLayoutMetricsChange}
+                        />
                     </div>
                 </div>
             </main>
+
+            <button
+                type="button"
+                onClick={togglePreviewMobile}
+                className="mobile-floating-toggle no-print"
+                aria-label={showPreviewMobile ? "Show CV form" : "Show CV preview"}
+            >
+                {showPreviewMobile ? "Edit" : "Preview"}
+            </button>
         </div>
     );
 }
