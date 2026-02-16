@@ -1,6 +1,25 @@
 # OnClickCV - Local Development Setup
 
-OnClickCV is a simple and intuitive full-stack application that allows you to create customizable, professional-looking CVs, with features like dynamic skill lists, educational entries with rich text editing, and export to PDF and Word formats.
+OnClickCV is a full-stack CV builder for creating professional CVs with live preview, template switching, and export to PDF/Word.
+
+## What's New in V2.1
+
+V2.1 focuses on precision and preview/export parity:
+
+- **Virtual A4 paged preview** (stacked pages with page labels instead of one long canvas)
+- **Dark mode shell + white paper invariant** (preview paper remains white for print realism)
+- **Accordion form UX** with cleaner sectioned editing
+- **Form guardrails**:
+  - profile summary word counter
+  - rich-text draft word counters
+  - non-blocking warnings for long entries
+  - non-blocking section overfill warning based on preview layout metrics
+- **Template B stability tuning** (better grid behavior and long-content wrapping)
+- **Improved export parity** for PDF/Word:
+  - date formatting consistency (`Sep 2001 - Jul 2003`)
+  - rich-text normalization for cleaner output
+  - PDF break-control wrappers to reduce awkward mid-item page cuts
+  - Word keeps two-column template structure with improved section rendering
 
 ## Prerequisites
 
@@ -29,16 +48,43 @@ Alternatively, if you already have the code downloaded, skip this step.
 Navigate to the project directories and install the required dependencies:
 
 ```bash
-# Navigate to backend folder
-cd server
-npm install
+# Install backend and frontend dependencies
+cd server && npm install
+cd ../client && npm install
 
-# Navigate back to root folder, then to frontend folder
-cd ../client
-npm install
+# Back to project root
+cd ..
 ```
 
-### Step 3: Set up Tailwind CSS (Frontend)
+### Step 3: One-click start (recommended)
+
+Run both backend and frontend with a single command from the project root:
+
+```bash
+npm run dev
+```
+
+This script:
+- Checks that ports `4000` (backend) and `3000` (frontend) are free
+- Starts backend first
+- Waits until backend is listening
+- Starts frontend second
+
+### Step 4: Manual start (fallback)
+
+If you prefer running each app separately:
+
+```bash
+# Terminal 1
+cd server
+npm start
+
+# Terminal 2
+cd client
+npm start
+```
+
+### Step 5: Set up Tailwind CSS (Frontend)
 
 Tailwind CSS is already configured in this project. If you need to set it up again or want to understand the process, follow these steps **inside the `client` folder**:
 
@@ -75,34 +121,12 @@ In `src/index.css`, ensure you have only:
 
 You can now use Tailwind utility classes throughout your React components.
 
-### Step 4: Run the Backend
-
-Start the backend server first:
-
-```bash
-# In the /server directory
-npm start
-```
-
-The backend server runs by default on `http://localhost:4000`
-
-### Step 5: Run the Frontend (React)
-
-Open another terminal window, navigate to the client directory, and run the frontend React app:
-
-```bash
-# In the /client directory
-npm start
-```
-
-The frontend runs by default on `http://localhost:3000`. 
-
-Your browser should automatically open at this URL.
+The backend server runs by default on `http://localhost:4000`, and the frontend runs on `http://localhost:3000`.
 
 ## Usage
 
 - Use the **CV Form** on the left to fill out your personal information, add skills dynamically, and add multiple education entries with rich text formatting.
-- Preview your CV changes in real-time on the right side.
+- Preview your CV changes in real-time on the right side with virtual A4 pagination.
 - Export your CV as a PDF or Word document by using the export buttons at the bottom of the form.
 
 ## Project Structure
@@ -131,8 +155,29 @@ OnClickCV
 
 ## Troubleshooting
 
-- Ensure your backend is running before starting your frontend.
-- If encountering issues, verify ports (`4000` backend, `3000` frontend) are not occupied.
+- Why backend first? Frontend calls backend endpoints at `http://localhost:4000` directly (see `client/src/App.js`). If backend is not up, requests fail.
+- Recommended: use `npm run dev` from root so startup order is handled automatically.
+- If issues persist, verify ports (`4000` backend, `3000` frontend) are not occupied.
+
+## Test Commands
+
+Run these from project root:
+
+```bash
+# Client tests (targeted)
+cd client
+npm test -- --watchAll=false --runInBand src/App.test.js src/components/CVForm.test.js src/components/CVPreview.test.js
+
+# Server tests (targeted)
+cd ../server
+SKIP_DB_SETUP=1 npm test -- --runInBand tests/export.controller.test.js
+```
+
+## Repo Hygiene (Avoid Leaks)
+
+- Do not commit runtime cache artifacts from `client/node_modules/.cache/*`.
+- Commit only source code, test files, and intentional config/docs changes.
+- Keep environment files (`.env*`) out of version control.
 
 ## Dependencies Used
 

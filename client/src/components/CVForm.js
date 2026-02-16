@@ -2,10 +2,93 @@ import React, { useState } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
+const FALLBACK_TEMPLATE_OPTIONS = [
+    { value: "A", label: "Template A (Clean)" },
+    { value: "B", label: "Template B (Modern Sidebar)" }
+];
+
+const Section = ({ title, isOpen, onToggle, children }) => (
+    <section className="cv-section-card">
+        <button
+            type="button"
+            onClick={onToggle}
+            className="cv-section-toggle"
+            aria-expanded={isOpen}
+        >
+            <span>{title}</span>
+            <span className="cv-section-symbol" aria-hidden="true">
+                {isOpen ? "−" : "+"}
+            </span>
+        </button>
+        {isOpen ? <div className="cv-section-body">{children}</div> : null}
+    </section>
+);
+
+const isRichTextEmpty = (value) => !value || value === "<p><br></p>" || value.trim() === "";
+
+const stripHtml = (value = "") =>
+    String(value)
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const countWords = (value = "") =>
+    String(value)
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+
+const countRichTextWords = (value = "") => countWords(stripHtml(value));
+
+const formatDateShort = (dateString) => {
+    if (!dateString) {
+        return "";
+    }
+
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) {
+        return String(dateString);
+    }
+
+    return parsed.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric"
+    });
+};
+
+const formatDateRange = (startDate, endDate) => {
+    const start = formatDateShort(startDate);
+    const end = formatDateShort(endDate);
+
+    if (!start && !end) {
+        return "N/A";
+    }
+
+    if (start && end) {
+        return `${start} - ${end}`;
+    }
+
+    if (start) {
+        return `${start} - Present`;
+    }
+
+    return end || "N/A";
+};
+
 const CVForm = ({
-    cvData, setCvData, template, setTemplate,
-    onExport, isExporting, exportError,
-    onSave, onLoad
+    cvData,
+    setCvData,
+    template,
+    setTemplate,
+    templateOptions,
+    onExport,
+    isExporting,
+    exportingFormat,
+    exportError,
+    onSave,
+    onLoad,
+    layoutMetrics
 }) => {
     const [newSkill, setNewSkill] = useState("");
     const [newCert, setNewCert] = useState("");
@@ -18,407 +101,761 @@ const CVForm = ({
         endDate: "",
         additionalInfo: ""
     });
-
-    // New states for work, volunteer, and projects
     const [newWork, setNewWork] = useState("");
     const [newVolunteer, setNewVolunteer] = useState("");
     const [newProject, setNewProject] = useState("");
-
     const [userId, setUserId] = useState("");
+    const [openSection, setOpenSection] = useState("personal");
 
-    // Handlers
-    const handleChange = (e) => setCvData({ ...cvData, [e.target.name]: e.target.value });
+    const availableTemplates =
+        templateOptions && templateOptions.length > 0
+            ? templateOptions
+            : FALLBACK_TEMPLATE_OPTIONS;
 
-    // Skills
+    const getSectionOverflowWarning = (sectionKey) => {
+        const sectionHeight = layoutMetrics?.sectionHeights?.[sectionKey] || 0;
+        const pageContentHeight = layoutMetrics?.pageContentHeight || 0;
+        const threshold = pageContentHeight * 0.7;
+
+        if (sectionHeight > threshold && threshold > 0) {
+            return "This section is getting long; consider condensing for a 1-page CV.";
+        }
+
+        return "";
+    };
+
+    const getLongEntryWarnings = (entries, label) =>
+        (entries || [])
+            .map((entry, index) => ({ index, words: countRichTextWords(entry) }))
+            .filter((entry) => entry.words > 60)
+            .map((entry) => `${label} ${entry.index + 1} is ${entry.words} words. Aim for 30-60 words.`);
+
+    const summaryWordCount = countWords(cvData.summary || "");
+    const newWorkWordCount = countRichTextWords(newWork);
+    const newVolunteerWordCount = countRichTextWords(newVolunteer);
+    const newProjectWordCount = countRichTextWords(newProject);
+    const newCertWordCount = countRichTextWords(newCert);
+    const newAwardWordCount = countRichTextWords(newAward);
+    const newEducationInfoWordCount = countRichTextWords(newEdu.additionalInfo || "");
+
+    const workWarnings = getLongEntryWarnings(cvData.workExperience, "Work entry");
+    const volunteerWarnings = getLongEntryWarnings(cvData.volunteerExperience, "Volunteer entry");
+    const projectWarnings = getLongEntryWarnings(cvData.projects, "Project entry");
+    const certificationWarnings = getLongEntryWarnings(cvData.certifications, "Certification entry");
+    const awardWarnings = getLongEntryWarnings(cvData.awards, "Award entry");
+
+    const toggleSection = (sectionId) => {
+        setOpenSection((currentSection) => (currentSection === sectionId ? "" : sectionId));
+    };
+
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+        setCvData((prev) => ({ ...prev, [name]: value }));
+    };
+
     const handleAddSkill = () => {
-        if (!newSkill.trim()) return;
-        setCvData({ ...cvData, skills: [...cvData.skills, newSkill.trim()] });
+        const cleanedSkill = newSkill.trim();
+        if (!cleanedSkill) {
+            return;
+        }
+
+        setCvData((prev) => ({ ...prev, skills: [...(prev.skills || []), cleanedSkill] }));
         setNewSkill("");
     };
-    const handleRemoveSkill = (idx) => setCvData({ ...cvData, skills: cvData.skills.filter((_, i) => i !== idx) });
 
-    // Education
-    const handleEduChange = (e) => setNewEdu({ ...newEdu, [e.target.name]: e.target.value });
-    const handleAdditionalInfoChange = (content) => setNewEdu({ ...newEdu, additionalInfo: content });
-    const handleAddEducation = () => {
-        if (!newEdu.degree && !newEdu.school) return;
-        setCvData({ ...cvData, education: [...cvData.education, { ...newEdu }] });
-        setNewEdu({ degree: "", school: "", location: "", startDate: "", endDate: "", additionalInfo: "" });
+    const handleRemoveSkill = (idx) => {
+        setCvData((prev) => ({
+            ...prev,
+            skills: (prev.skills || []).filter((_, index) => index !== idx)
+        }));
     };
-    const handleRemoveEducation = (idx) => setCvData({ ...cvData, education: cvData.education.filter((_, i) => i !== idx) });
 
-    // Certifications
+    const handleEduChange = (event) => {
+        const { name, value } = event.target;
+        setNewEdu((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleAdditionalInfoChange = (content) => {
+        setNewEdu((prev) => ({ ...prev, additionalInfo: content }));
+    };
+
+    const handleAddEducation = () => {
+        if (!newEdu.degree.trim() && !newEdu.school.trim()) {
+            return;
+        }
+
+        setCvData((prev) => ({
+            ...prev,
+            education: [...(prev.education || []), { ...newEdu }]
+        }));
+
+        setNewEdu({
+            degree: "",
+            school: "",
+            location: "",
+            startDate: "",
+            endDate: "",
+            additionalInfo: ""
+        });
+    };
+
+    const handleRemoveEducation = (idx) => {
+        setCvData((prev) => ({
+            ...prev,
+            education: (prev.education || []).filter((_, index) => index !== idx)
+        }));
+    };
+
     const handleAddCert = () => {
-        if (!newCert || newCert === "<p><br></p>") return;
-        setCvData({ ...cvData, certifications: [...(cvData.certifications || []), newCert] });
+        if (isRichTextEmpty(newCert)) {
+            return;
+        }
+
+        setCvData((prev) => ({
+            ...prev,
+            certifications: [...(prev.certifications || []), newCert]
+        }));
         setNewCert("");
     };
-    const handleRemoveCert = (idx) => setCvData({ ...cvData, certifications: cvData.certifications.filter((_, i) => i !== idx) });
 
-    // Awards
+    const handleRemoveCert = (idx) => {
+        setCvData((prev) => ({
+            ...prev,
+            certifications: (prev.certifications || []).filter((_, index) => index !== idx)
+        }));
+    };
+
     const handleAddAward = () => {
-        if (!newAward || newAward === "<p><br></p>") return;
-        setCvData({ ...cvData, awards: [...(cvData.awards || []), newAward] });
+        if (isRichTextEmpty(newAward)) {
+            return;
+        }
+
+        setCvData((prev) => ({
+            ...prev,
+            awards: [...(prev.awards || []), newAward]
+        }));
         setNewAward("");
     };
-    const handleRemoveAward = (idx) => setCvData({ ...cvData, awards: cvData.awards.filter((_, i) => i !== idx) });
 
-    // Work Experience
+    const handleRemoveAward = (idx) => {
+        setCvData((prev) => ({
+            ...prev,
+            awards: (prev.awards || []).filter((_, index) => index !== idx)
+        }));
+    };
+
     const handleAddWork = () => {
-        if (!newWork || newWork === "<p><br></p>") return;
-        setCvData({ ...cvData, workExperience: [...(cvData.workExperience || []), newWork] });
+        if (isRichTextEmpty(newWork)) {
+            return;
+        }
+
+        setCvData((prev) => ({
+            ...prev,
+            workExperience: [...(prev.workExperience || []), newWork]
+        }));
         setNewWork("");
     };
-    const handleRemoveWork = (idx) => setCvData({ ...cvData, workExperience: cvData.workExperience.filter((_, i) => i !== idx) });
 
-    // Volunteer Experience
+    const handleRemoveWork = (idx) => {
+        setCvData((prev) => ({
+            ...prev,
+            workExperience: (prev.workExperience || []).filter((_, index) => index !== idx)
+        }));
+    };
+
     const handleAddVolunteer = () => {
-        if (!newVolunteer || newVolunteer === "<p><br></p>") return;
-        setCvData({ ...cvData, volunteerExperience: [...(cvData.volunteerExperience || []), newVolunteer] });
+        if (isRichTextEmpty(newVolunteer)) {
+            return;
+        }
+
+        setCvData((prev) => ({
+            ...prev,
+            volunteerExperience: [...(prev.volunteerExperience || []), newVolunteer]
+        }));
         setNewVolunteer("");
     };
-    const handleRemoveVolunteer = (idx) => setCvData({ ...cvData, volunteerExperience: cvData.volunteerExperience.filter((_, i) => i !== idx) });
 
-    // Projects
+    const handleRemoveVolunteer = (idx) => {
+        setCvData((prev) => ({
+            ...prev,
+            volunteerExperience: (prev.volunteerExperience || []).filter((_, index) => index !== idx)
+        }));
+    };
+
     const handleAddProject = () => {
-        if (!newProject || newProject === "<p><br></p>") return;
-        setCvData({ ...cvData, projects: [...(cvData.projects || []), newProject] });
+        if (isRichTextEmpty(newProject)) {
+            return;
+        }
+
+        setCvData((prev) => ({
+            ...prev,
+            projects: [...(prev.projects || []), newProject]
+        }));
         setNewProject("");
     };
-    const handleRemoveProject = (idx) => setCvData({ ...cvData, projects: cvData.projects.filter((_, i) => i !== idx) });
+
+    const handleRemoveProject = (idx) => {
+        setCvData((prev) => ({
+            ...prev,
+            projects: (prev.projects || []).filter((_, index) => index !== idx)
+        }));
+    };
+
+    const handleSkillInputKeyDown = (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            handleAddSkill();
+        }
+    };
 
     return (
-        <form className="space-y-6">
-            <h2 className="text-xl font-semibold mb-4">CV Form</h2>
-            {/* Personal Info */}
-            <div className="space-y-3">
-                <div>
-                    <label className="block text-sm font-medium mb-1">Name</label>
-                    <input
-                        name="name"
-                        value={cvData.name}
-                        onChange={handleChange}
-                        placeholder="John Doe"
-                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1">Email</label>
-                    <input
-                        name="email"
-                        value={cvData.email}
-                        onChange={handleChange}
-                        placeholder="john@example.com"
-                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1">Phone</label>
-                    <input
-                        name="phone"
-                        value={cvData.phone}
-                        onChange={handleChange}
-                        placeholder="(123) 456-7890"
-                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1">LinkedIn</label>
-                    <input
-                        name="linkedin"
-                        value={cvData.linkedin || ""}
-                        onChange={handleChange}
-                        placeholder="https://linkedin.com/in/yourprofile"
-                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-            </div>
+        <form className="cv-form" aria-label="CV Form">
+            <h2 className="cv-form-title">CV Form</h2>
 
-            {/* Profile Summary */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Profile Summary</label>
+            <Section
+                title="Personal Info"
+                isOpen={openSection === "personal"}
+                onToggle={() => toggleSection("personal")}
+            >
+                {getSectionOverflowWarning("personal") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("personal")}</div>
+                ) : null}
+                <div className="form-grid two-col">
+                    <div>
+                        <label htmlFor="cv-name" className="form-label">Name</label>
+                        <input
+                            id="cv-name"
+                            name="name"
+                            value={cvData.name || ""}
+                            onChange={handleChange}
+                            placeholder="John Doe"
+                            className="form-input"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="cv-email" className="form-label">Email</label>
+                        <input
+                            id="cv-email"
+                            name="email"
+                            value={cvData.email || ""}
+                            onChange={handleChange}
+                            placeholder="john@example.com"
+                            className="form-input"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="cv-phone" className="form-label">Phone</label>
+                        <input
+                            id="cv-phone"
+                            name="phone"
+                            value={cvData.phone || ""}
+                            onChange={handleChange}
+                            placeholder="(123) 456-7890"
+                            className="form-input"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="cv-linkedin" className="form-label">LinkedIn</label>
+                        <input
+                            id="cv-linkedin"
+                            name="linkedin"
+                            value={cvData.linkedin || ""}
+                            onChange={handleChange}
+                            placeholder="https://linkedin.com/in/yourprofile"
+                            className="form-input"
+                        />
+                    </div>
+                </div>
+            </Section>
+
+            <Section
+                title="Profile Summary"
+                isOpen={openSection === "summary"}
+                onToggle={() => toggleSection("summary")}
+            >
+                {getSectionOverflowWarning("summary") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("summary")}</div>
+                ) : null}
+                <label htmlFor="cv-summary" className="form-label">Profile Summary</label>
                 <textarea
+                    id="cv-summary"
                     name="summary"
-                    value={cvData.summary}
+                    value={cvData.summary || ""}
                     onChange={handleChange}
                     placeholder="Write a brief profile summary..."
-                    rows={3}
-                    className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={4}
+                    className="form-textarea"
                 />
-            </div>
+                <div className="form-meta">Words: {summaryWordCount}</div>
+            </Section>
 
-            {/* Work Experience */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Add Work Experience</label>
+            <Section
+                title="Work"
+                isOpen={openSection === "work"}
+                onToggle={() => toggleSection("work")}
+            >
+                {getSectionOverflowWarning("work") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("work")}</div>
+                ) : null}
+                <label className="form-label">Add Work Experience</label>
                 <ReactQuill
                     theme="snow"
                     value={newWork}
                     onChange={setNewWork}
                     placeholder="Describe your work experience..."
                 />
-                <button type="button" onClick={handleAddWork} className="mt-2 add-btn">Add Work Experience</button>
-                {cvData.workExperience && cvData.workExperience.length > 0 && (
-                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                        {cvData.workExperience.map((work, idx) => (
-                            <li key={idx} className="flex items-center justify-between">
-                                <span dangerouslySetInnerHTML={{ __html: work }} />
-                                <button type="button" onClick={() => handleRemoveWork(idx)} className="remove-btn ml-2">Remove</button>
-                            </li>
+                <div className="form-meta">Current draft words: {newWorkWordCount}</div>
+                {newWorkWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newWorkWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
+                <button type="button" onClick={handleAddWork} className="add-btn">Add Work Experience</button>
+                {(cvData.workExperience || []).length > 0 && (
+                    <div className="entry-list">
+                        {(cvData.workExperience || []).map((work, idx) => (
+                            <div key={idx} className="entry-list-item">
+                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: work }} />
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveWork(idx)}
+                                    className="remove-btn"
+                                    aria-label={`Remove work experience ${idx + 1}`}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {workWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {workWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
                         ))}
                     </ul>
-                )}
-            </div>
+                ) : null}
+            </Section>
 
-            {/* Volunteer Experience */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Add Volunteer Experience</label>
+            <Section
+                title="Volunteer"
+                isOpen={openSection === "volunteer"}
+                onToggle={() => toggleSection("volunteer")}
+            >
+                {getSectionOverflowWarning("volunteer") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("volunteer")}</div>
+                ) : null}
+                <label className="form-label">Add Volunteer Experience</label>
                 <ReactQuill
                     theme="snow"
                     value={newVolunteer}
                     onChange={setNewVolunteer}
                     placeholder="Describe your volunteer experience..."
                 />
-                <button type="button" onClick={handleAddVolunteer} className="mt-2 add-btn">Add Volunteer Experience</button>
-                {cvData.volunteerExperience && cvData.volunteerExperience.length > 0 && (
-                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                        {cvData.volunteerExperience.map((vol, idx) => (
-                            <li key={idx} className="flex items-center justify-between">
-                                <span dangerouslySetInnerHTML={{ __html: vol }} />
-                                <button type="button" onClick={() => handleRemoveVolunteer(idx)} className="remove-btn ml-2">Remove</button>
-                            </li>
+                <div className="form-meta">Current draft words: {newVolunteerWordCount}</div>
+                {newVolunteerWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newVolunteerWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
+                <button type="button" onClick={handleAddVolunteer} className="add-btn">Add Volunteer Experience</button>
+                {(cvData.volunteerExperience || []).length > 0 && (
+                    <div className="entry-list">
+                        {(cvData.volunteerExperience || []).map((volunteer, idx) => (
+                            <div key={idx} className="entry-list-item">
+                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: volunteer }} />
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveVolunteer(idx)}
+                                    className="remove-btn"
+                                    aria-label={`Remove volunteer experience ${idx + 1}`}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {volunteerWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {volunteerWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
                         ))}
                     </ul>
-                )}
-            </div>
+                ) : null}
+            </Section>
 
-            {/* Projects */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Add a Project</label>
+            <Section
+                title="Projects"
+                isOpen={openSection === "projects"}
+                onToggle={() => toggleSection("projects")}
+            >
+                {getSectionOverflowWarning("projects") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("projects")}</div>
+                ) : null}
+                <label className="form-label">Add a Project</label>
                 <ReactQuill
                     theme="snow"
                     value={newProject}
                     onChange={setNewProject}
                     placeholder="Describe your project..."
                 />
-                <button type="button" onClick={handleAddProject} className="mt-2 add-btn">Add Project</button>
-                {cvData.projects && cvData.projects.length > 0 && (
-                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                        {cvData.projects.map((proj, idx) => (
-                            <li key={idx} className="flex items-center justify-between">
-                                <span dangerouslySetInnerHTML={{ __html: proj }} />
-                                <button type="button" onClick={() => handleRemoveProject(idx)} className="remove-btn ml-2">Remove</button>
-                            </li>
+                <div className="form-meta">Current draft words: {newProjectWordCount}</div>
+                {newProjectWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newProjectWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
+                <button type="button" onClick={handleAddProject} className="add-btn">Add Project</button>
+                {(cvData.projects || []).length > 0 && (
+                    <div className="entry-list">
+                        {(cvData.projects || []).map((project, idx) => (
+                            <div key={idx} className="entry-list-item">
+                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: project }} />
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveProject(idx)}
+                                    className="remove-btn"
+                                    aria-label={`Remove project ${idx + 1}`}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {projectWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {projectWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
                         ))}
                     </ul>
-                )}
-            </div>
+                ) : null}
+            </Section>
 
-            {/* Skills */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Add a Skill</label>
-                <div className="flex gap-2">
+            <Section
+                title="Skills"
+                isOpen={openSection === "skills"}
+                onToggle={() => toggleSection("skills")}
+            >
+                {getSectionOverflowWarning("skills") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("skills")}</div>
+                ) : null}
+                <label htmlFor="new-skill" className="form-label">Add a Skill</label>
+                <div className="skill-input-row">
                     <input
+                        id="new-skill"
                         type="text"
                         value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
+                        onChange={(event) => setNewSkill(event.target.value)}
+                        onKeyDown={handleSkillInputKeyDown}
                         placeholder="e.g. Python, React"
-                        className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="form-input"
                     />
                     <button type="button" onClick={handleAddSkill} className="add-btn">Add</button>
                 </div>
-                {cvData.skills.length > 0 && (
-                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                        {cvData.skills.map((skill, idx) => (
-                            <li key={idx} className="flex items-center justify-between">
-                                <span>{skill}</span>
-                                <button type="button" onClick={() => handleRemoveSkill(idx)} className="remove-btn ml-2">Remove</button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
+                <div className="skill-chips">
+                    {(cvData.skills || []).map((skill, idx) => (
+                        <span key={`${skill}-${idx}`} className="skill-chip">
+                            <span>{skill}</span>
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveSkill(idx)}
+                                className="chip-remove-btn"
+                                aria-label={`Remove ${skill}`}
+                            >
+                                ×
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            </Section>
 
-            {/* Education */}
-            <div>
-                <h3 className="text-lg font-semibold mb-2">Education</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Section
+                title="Education"
+                isOpen={openSection === "education"}
+                onToggle={() => toggleSection("education")}
+            >
+                {getSectionOverflowWarning("education") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("education")}</div>
+                ) : null}
+                <div className="form-grid two-col">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Degree</label>
+                        <label htmlFor="edu-degree" className="form-label">Degree</label>
                         <input
+                            id="edu-degree"
                             name="degree"
                             value={newEdu.degree}
                             onChange={handleEduChange}
                             placeholder="e.g., BSc in Computer Science"
-                            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="form-input"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">School</label>
+                        <label htmlFor="edu-school" className="form-label">School</label>
                         <input
+                            id="edu-school"
                             name="school"
                             value={newEdu.school}
                             onChange={handleEduChange}
                             placeholder="e.g., Durham University"
-                            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="form-input"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Location</label>
+                        <label htmlFor="edu-location" className="form-label">Location</label>
                         <input
+                            id="edu-location"
                             name="location"
                             value={newEdu.location}
                             onChange={handleEduChange}
                             placeholder="e.g., Durham, UK"
-                            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="form-input"
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="form-grid two-col compact-gap">
                         <div>
-                            <label>Start Date</label>
+                            <label htmlFor="edu-start" className="form-label">Start Date</label>
                             <input
+                                id="edu-start"
                                 type="date"
                                 name="startDate"
                                 value={newEdu.startDate}
                                 onChange={handleEduChange}
-                                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="form-input"
                             />
                         </div>
                         <div>
-                            <label>End Date</label>
+                            <label htmlFor="edu-end" className="form-label">End Date</label>
                             <input
+                                id="edu-end"
                                 type="date"
                                 name="endDate"
                                 value={newEdu.endDate}
                                 onChange={handleEduChange}
-                                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="form-input"
                             />
                         </div>
                     </div>
                 </div>
-                <div className="mt-2">
-                    <label className="block text-sm font-medium mb-1">Additional Info</label>
+                <div>
+                    <label className="form-label">Additional Info</label>
                     <ReactQuill
                         theme="snow"
                         value={newEdu.additionalInfo}
                         onChange={handleAdditionalInfoChange}
                         placeholder="Optional details, honors, relevant coursework..."
                     />
+                    <div className="form-meta">Current draft words: {newEducationInfoWordCount}</div>
+                    {newEducationInfoWordCount > 60 ? (
+                        <div className="form-warning">
+                            This draft is {newEducationInfoWordCount} words. Aim for 30-60 words per entry.
+                        </div>
+                    ) : null}
                 </div>
-                <button type="button" onClick={handleAddEducation} className="mt-2 add-btn">Add Education</button>
-                {cvData.education.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                        {cvData.education.map((edu, idx) => (
-                            <div key={idx} className="border rounded p-3 relative bg-gray-50">
+                <button type="button" onClick={handleAddEducation} className="add-btn">Add Education</button>
+
+                {(cvData.education || []).length > 0 && (
+                    <div className="entry-list">
+                        {(cvData.education || []).map((edu, idx) => (
+                            <div key={idx} className="education-card">
                                 <button
                                     type="button"
-                                    className="absolute top-2 right-2 remove-btn"
+                                    className="remove-btn"
                                     onClick={() => handleRemoveEducation(idx)}
-                                >Remove</button>
-                                <div className="font-semibold">{edu.school}</div>
-                                <div>{edu.degree}</div>
-                                <div>{edu.location}</div>
-                                <div className="text-xs text-gray-500">{edu.startDate} - {edu.endDate}</div>
-                                {edu.additionalInfo && (
-                                    <div className="mt-1 text-sm" dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
+                                    aria-label={`Remove education ${idx + 1}`}
+                                >
+                                    Remove
+                                </button>
+                                <div className="education-school">{edu.school || "N/A"}</div>
+                                <div>{edu.degree || "N/A"}</div>
+                                <div>{edu.location || "N/A"}</div>
+                                <div className="education-dates">
+                                    {formatDateRange(edu.startDate, edu.endDate)}
+                                </div>
+                                {edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo) && (
+                                    <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
                                 )}
                             </div>
                         ))}
                     </div>
                 )}
-            </div>
+            </Section>
 
-            {/* Certifications */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Add a Certification</label>
+            <Section
+                title="Certifications"
+                isOpen={openSection === "certifications"}
+                onToggle={() => toggleSection("certifications")}
+            >
+                {getSectionOverflowWarning("certifications") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("certifications")}</div>
+                ) : null}
+                <label className="form-label">Add a Certification</label>
                 <ReactQuill
                     theme="snow"
                     value={newCert}
                     onChange={setNewCert}
                     placeholder="e.g. AWS Certified Solutions Architect"
                 />
-                <button type="button" onClick={handleAddCert} className="mt-2 add-btn">Add Certification</button>
-                {cvData.certifications && cvData.certifications.length > 0 && (
-                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                        {cvData.certifications.map((cert, idx) => (
-                            <li key={idx} className="flex items-center justify-between">
-                                <span dangerouslySetInnerHTML={{ __html: cert }} />
+                <div className="form-meta">Current draft words: {newCertWordCount}</div>
+                {newCertWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newCertWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
+                <button type="button" onClick={handleAddCert} className="add-btn">Add Certification</button>
+                {(cvData.certifications || []).length > 0 && (
+                    <div className="entry-list">
+                        {(cvData.certifications || []).map((cert, idx) => (
+                            <div key={idx} className="entry-list-item">
+                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: cert }} />
                                 <button
                                     type="button"
-                                    className="remove-btn ml-2"
+                                    className="remove-btn"
                                     onClick={() => handleRemoveCert(idx)}
-                                >Remove</button>
-                            </li>
+                                    aria-label={`Remove certification ${idx + 1}`}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {certificationWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {certificationWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
                         ))}
                     </ul>
-                )}
-            </div>
+                ) : null}
+            </Section>
 
-            {/* Awards */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Add an Award</label>
+            <Section
+                title="Awards"
+                isOpen={openSection === "awards"}
+                onToggle={() => toggleSection("awards")}
+            >
+                {getSectionOverflowWarning("awards") ? (
+                    <div className="form-warning">{getSectionOverflowWarning("awards")}</div>
+                ) : null}
+                <label className="form-label">Add an Award</label>
                 <ReactQuill
                     theme="snow"
                     value={newAward}
                     onChange={setNewAward}
                     placeholder="e.g. Dean's List 2022"
                 />
-                <button type="button" onClick={handleAddAward} className="mt-2 add-btn">Add Award</button>
-                {cvData.awards && cvData.awards.length > 0 && (
-                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                        {cvData.awards.map((award, idx) => (
-                            <li key={idx} className="flex items-center justify-between">
-                                <span dangerouslySetInnerHTML={{ __html: award }} />
+                <div className="form-meta">Current draft words: {newAwardWordCount}</div>
+                {newAwardWordCount > 60 ? (
+                    <div className="form-warning">
+                        This draft is {newAwardWordCount} words. Aim for 30-60 words per entry.
+                    </div>
+                ) : null}
+                <button type="button" onClick={handleAddAward} className="add-btn">Add Award</button>
+                {(cvData.awards || []).length > 0 && (
+                    <div className="entry-list">
+                        {(cvData.awards || []).map((award, idx) => (
+                            <div key={idx} className="entry-list-item">
+                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: award }} />
                                 <button
                                     type="button"
-                                    className="remove-btn ml-2"
+                                    className="remove-btn"
                                     onClick={() => handleRemoveAward(idx)}
-                                >Remove</button>
-                            </li>
+                                    aria-label={`Remove award ${idx + 1}`}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {awardWarnings.length > 0 ? (
+                    <ul className="warning-list">
+                        {awardWarnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
                         ))}
                     </ul>
-                )}
-            </div>
+                ) : null}
+            </Section>
 
-            {/* Template Selector */}
-            <div>
-                <label className="block text-sm font-medium mb-1">Template</label>
+            <Section
+                title="Template & Export"
+                isOpen={openSection === "template-export"}
+                onToggle={() => toggleSection("template-export")}
+            >
+                <label htmlFor="template-select" className="form-label">Template</label>
                 <select
+                    id="template-select"
                     value={template}
-                    onChange={(e) => setTemplate(e.target.value)}
-                    className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(event) => setTemplate(event.target.value)}
+                    className="form-select"
                 >
-                    <option value="A">Template A (Clean)</option>
-                    <option value="B">Template B (Icons/Colors)</option>
+                    {availableTemplates.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
                 </select>
-            </div>
 
-            {/* Export Buttons */}
-            <div className="flex gap-2 mt-4">
-                <button type="button" onClick={() => onExport("pdf")} disabled={isExporting} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-                    {isExporting ? "Exporting..." : "Export PDF"}
-                </button>
-                <button type="button" onClick={() => onExport("word")} disabled={isExporting} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-                    {isExporting ? "Exporting..." : "Export Word"}
-                </button>
-            </div>
-            {exportError && <div className="text-red-500 mt-2">{exportError}</div>}
+                <div className="button-row">
+                    <button
+                        type="button"
+                        onClick={() => onExport("pdf")}
+                        disabled={isExporting}
+                        className="primary-btn"
+                    >
+                        <span className="btn-content">
+                            {isExporting && exportingFormat === "pdf" ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                            {isExporting && exportingFormat === "pdf" ? "Generating PDF..." : "Export PDF"}
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onExport("word")}
+                        disabled={isExporting}
+                        className="primary-btn"
+                    >
+                        <span className="btn-content">
+                            {isExporting && exportingFormat === "word" ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                            {isExporting && exportingFormat === "word" ? "Generating Word..." : "Export Word"}
+                        </span>
+                    </button>
+                </div>
 
-            {/* Save/Load Buttons */}
-            <div className="flex gap-2 mt-4 items-center">
-                <input
-                    type="text"
-                    value={userId}
-                    onChange={e => setUserId(e.target.value)}
-                    placeholder="Enter User ID"
-                    className="border rounded px-3 py-2 flex-1"
-                />
-                <button type="button" onClick={() => onSave && userId && onSave(userId)} className="add-btn">
-                    Save CV
-                </button>
-                <button type="button" onClick={() => onLoad && userId && onLoad(userId)} className="add-btn">
-                    Load CV
-                </button>
-            </div>
+                {exportError ? <div className="form-error">{exportError}</div> : null}
+            </Section>
+
+            <Section
+                title="Save / Load"
+                isOpen={openSection === "save-load"}
+                onToggle={() => toggleSection("save-load")}
+            >
+                <label htmlFor="save-user-id" className="form-label">User ID</label>
+                <div className="save-load-row">
+                    <input
+                        id="save-user-id"
+                        type="text"
+                        value={userId}
+                        onChange={(event) => setUserId(event.target.value)}
+                        placeholder="Enter User ID"
+                        className="form-input"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => onSave && userId && onSave(userId)}
+                        className="add-btn"
+                    >
+                        Save CV
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onLoad && userId && onLoad(userId)}
+                        className="add-btn"
+                    >
+                        Load CV
+                    </button>
+                </div>
+            </Section>
         </form>
     );
 };
