@@ -14,9 +14,11 @@ const {
     TextRun,
     WidthType
 } = require("docx");
+const { getOutputSectionsForTemplate, normalizeSectionLayout } = require("../utils/sectionLayout");
 
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
 const isRichTextEmpty = (value) => !value || value === "<p><br></p>" || value.trim() === "";
+const hasText = (value = "") => String(value || "").trim().length > 0;
 
 const escapeHtml = (value = "") =>
     String(value)
@@ -80,13 +82,22 @@ const formatDateRange = (startDate, endDate) => {
 
 const formatPlainText = (value) => {
     if (!value) {
-        return "N/A";
+        return "";
     }
 
     return escapeHtml(value).replace(/\n/g, "<br />");
 };
 
 const stripHtml = (value = "") => decodeHtmlEntities(String(value).replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
+const getValidRichEntries = (entries) =>
+    normalizeArray(entries)
+        .map((entry) => normalizeRichHtmlForExport(entry))
+        .filter((entry) => !isRichTextEmpty(entry));
+const getValidEducationEntries = (education) =>
+    normalizeArray(education).filter((edu = {}) =>
+        [edu.degree, edu.school, edu.location, edu.startDate, edu.endDate, edu.additionalInfo]
+            .some((field) => hasText(stripHtml(field || "")))
+    );
 
 const renderSkillsList = (skills) => {
     const validSkills = normalizeArray(skills)
@@ -94,7 +105,7 @@ const renderSkillsList = (skills) => {
         .filter(Boolean);
 
     if (validSkills.length === 0) {
-        return '<div class="entry-block"><div class="preview-empty">N/A</div></div>';
+        return "";
     }
 
     return `<div class="entry-block"><ul class="preview-list">${validSkills
@@ -103,12 +114,10 @@ const renderSkillsList = (skills) => {
 };
 
 const renderRichEntries = (entries) => {
-    const validEntries = normalizeArray(entries)
-        .map((entry) => normalizeRichHtmlForExport(entry))
-        .filter((entry) => !isRichTextEmpty(entry));
+    const validEntries = getValidRichEntries(entries);
 
     if (validEntries.length === 0) {
-        return '<div class="entry-block"><div class="preview-empty">N/A</div></div>';
+        return "";
     }
 
     return validEntries
@@ -117,22 +126,24 @@ const renderRichEntries = (entries) => {
 };
 
 const renderEducationEntries = (education) => {
-    const validEntries = normalizeArray(education);
+    const validEntries = getValidEducationEntries(education);
     if (validEntries.length === 0) {
-        return '<div class="entry-block"><div class="preview-empty">N/A</div></div>';
+        return "";
     }
 
     return validEntries
         .map((edu) => {
             const dateRange = formatDateRange(edu.startDate, edu.endDate);
             const normalizedAdditionalInfo = normalizeRichHtmlForExport(edu.additionalInfo || "");
+            const hasLocation = hasText(edu.location);
+            const hasDateRange = hasText(dateRange) && dateRange !== "N/A";
 
             return `
                 <div class="entry-block preview-education-entry">
-                    <div class="preview-education-school">${escapeHtml(edu.school || "N/A")}</div>
-                    <div>${escapeHtml(edu.degree || "N/A")}</div>
-                    <div>${escapeHtml(edu.location || "N/A")}</div>
-                    <div class="preview-education-dates">${escapeHtml(dateRange)}</div>
+                    ${hasText(edu.school) ? `<div class="preview-education-school">${escapeHtml(edu.school)}</div>` : ""}
+                    ${hasText(edu.degree) ? `<div>${escapeHtml(edu.degree)}</div>` : ""}
+                    ${hasLocation ? `<div>${escapeHtml(edu.location)}</div>` : ""}
+                    ${hasDateRange ? `<div class="preview-education-dates">${escapeHtml(dateRange)}</div>` : ""}
                     ${
                         normalizedAdditionalInfo && !isRichTextEmpty(normalizedAdditionalInfo)
                             ? `<div class="preview-rich-entry">${normalizedAdditionalInfo}</div>`
@@ -142,6 +153,149 @@ const renderEducationEntries = (education) => {
             `;
         })
         .join("");
+};
+
+const renderSectionHtml = (sectionId, cvData = {}) => {
+    if (sectionId === "personal") {
+        const rows = [
+            { label: "Name", value: cvData.name },
+            { label: "Email", value: cvData.email },
+            { label: "Phone", value: cvData.phone },
+            { label: "LinkedIn", value: cvData.linkedin }
+        ].filter((row) => hasText(row.value));
+
+        return `
+            <section class="section-block">
+                <h3>Personal Info</h3>
+                <div class="entry-block preview-personal-block">
+                    ${rows
+                        .map(
+                            (row) =>
+                                `<div><span class="preview-label">${escapeHtml(row.label)}:</span> ${formatPlainText(row.value)}</div>`
+                        )
+                        .join("")}
+                </div>
+            </section>
+        `;
+    }
+
+    if (sectionId === "skills") {
+        const html = renderSkillsList(cvData.skills);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Skills</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    if (sectionId === "certifications") {
+        const html = renderRichEntries(cvData.certifications);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Certifications</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    if (sectionId === "awards") {
+        const html = renderRichEntries(cvData.awards);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Awards</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    if (sectionId === "summary") {
+        if (!hasText(cvData.summary)) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Profile Summary</h3>
+                <div class="entry-block preview-text-block">${formatPlainText(cvData.summary)}</div>
+            </section>
+        `;
+    }
+
+    if (sectionId === "work") {
+        const html = renderRichEntries(cvData.workExperience);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Work Experience</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    if (sectionId === "volunteer") {
+        const html = renderRichEntries(cvData.volunteerExperience);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Volunteer Experience</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    if (sectionId === "education") {
+        const html = renderEducationEntries(cvData.education);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Education</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    if (sectionId === "projects") {
+        const html = renderRichEntries(cvData.projects);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Projects</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    if (sectionId === "additional-info") {
+        const html = renderRichEntries([cvData.additionalInfo || ""]);
+        if (!html) {
+            return "";
+        }
+        return `
+            <section class="section-block">
+                <h3>Additional Info</h3>
+                ${html}
+            </section>
+        `;
+    }
+
+    return "";
 };
 
 const buildTemplateStyles = (template) => {
@@ -211,6 +365,8 @@ const buildTemplateStyles = (template) => {
             }
             .preview-container.template-A .left-column { width: 35%; }
             .preview-container.template-A .right-column { width: 65%; }
+            .preview-container.template-A .left-column:empty { display: none; }
+            .preview-container.template-A .left-column:empty + .right-column { width: 100%; }
             .preview-container.template-A h3 {
                 margin: 0 0 8px;
                 font-size: 1.1rem;
@@ -270,21 +426,11 @@ const buildTemplateStyles = (template) => {
 
 const generateHTML = (cvData, template) => {
     const safeTemplate = template === "B" ? "B" : "A";
+    const sectionLayout = normalizeSectionLayout(cvData?.sectionLayout, cvData || {});
+    const ordered = getOutputSectionsForTemplate(sectionLayout, safeTemplate, cvData || {});
 
-    const {
-        name,
-        email,
-        phone,
-        linkedin,
-        summary,
-        workExperience,
-        volunteerExperience,
-        education,
-        skills,
-        projects,
-        certifications,
-        awards
-    } = cvData || {};
+    const leftHtml = ordered.left.map((sectionId) => renderSectionHtml(sectionId, cvData || {})).join("");
+    const rightHtml = ordered.right.map((sectionId) => renderSectionHtml(sectionId, cvData || {})).join("");
 
     return `
         <html>
@@ -294,59 +440,8 @@ const generateHTML = (cvData, template) => {
             </head>
             <body>
                 <div class="preview-container template-${safeTemplate}">
-                    <div class="left-column">
-                        <section class="section-block">
-                            <h3>Personal Info</h3>
-                            <div class="entry-block preview-personal-block">
-                                <div><span class="preview-label">Name:</span> ${formatPlainText(name)}</div>
-                                <div><span class="preview-label">Email:</span> ${formatPlainText(email)}</div>
-                                <div><span class="preview-label">Phone:</span> ${formatPlainText(phone)}</div>
-                                <div><span class="preview-label">LinkedIn:</span> ${formatPlainText(linkedin)}</div>
-                            </div>
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Skills</h3>
-                            ${renderSkillsList(skills)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Certifications</h3>
-                            ${renderRichEntries(certifications)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Awards</h3>
-                            ${renderRichEntries(awards)}
-                        </section>
-                    </div>
-
-                    <div class="right-column">
-                        <section class="section-block">
-                            <h3>Profile Summary</h3>
-                            <div class="entry-block preview-text-block">${formatPlainText(summary)}</div>
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Work Experience</h3>
-                            ${renderRichEntries(workExperience)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Volunteer Experience</h3>
-                            ${renderRichEntries(volunteerExperience)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Education</h3>
-                            ${renderEducationEntries(education)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Projects</h3>
-                            ${renderRichEntries(projects)}
-                        </section>
-                    </div>
+                    <div class="left-column">${leftHtml}</div>
+                    <div class="right-column">${rightHtml}</div>
                 </div>
             </body>
         </html>
@@ -675,28 +770,35 @@ const addWordEducation = (target, education, styleOptions = {}) => {
     entries.forEach((edu, index) => {
         const dateText = formatDateRange(edu.startDate, edu.endDate);
         const normalizedAdditionalInfo = normalizeRichHtmlForExport(edu.additionalInfo || "");
+        const hasDate = hasText(dateText) && dateText !== "N/A";
 
-        target.push(
-            new Paragraph({
-                children: [new TextRun({ text: edu.school || "N/A", bold: true, size: 27 })],
-                spacing: { after: 60 },
-                keepLines: true
-            })
-        );
+        if (hasText(edu.school)) {
+            target.push(
+                new Paragraph({
+                    children: [new TextRun({ text: edu.school, bold: true, size: 27 })],
+                    spacing: { after: 60 },
+                    keepLines: true
+                })
+            );
+        }
 
-        target.push(createWordFallbackParagraph(edu.degree || "N/A"));
+        if (hasText(edu.degree)) {
+            target.push(createWordFallbackParagraph(edu.degree));
+        }
 
-        if (edu.location) {
+        if (hasText(edu.location)) {
             target.push(createWordFallbackParagraph(edu.location));
         }
 
-        target.push(
-            new Paragraph({
-                children: [new TextRun({ text: dateText, color: "64748B" })],
-                spacing: { after: 80 },
-                keepLines: true
-            })
-        );
+        if (hasDate) {
+            target.push(
+                new Paragraph({
+                    children: [new TextRun({ text: dateText, color: "64748B" })],
+                    spacing: { after: 80 },
+                    keepLines: true
+                })
+            );
+        }
 
         if (normalizedAdditionalInfo && !isRichTextEmpty(normalizedAdditionalInfo)) {
             quillHtmlToWordParagraphs(normalizedAdditionalInfo).forEach((paragraph) =>
@@ -710,43 +812,100 @@ const addWordEducation = (target, education, styleOptions = {}) => {
     });
 };
 
+const addWordSectionById = (target, sectionId, cvData, styleOptions = {}, personalOptions = {}) => {
+    if (sectionId === "personal") {
+        const rows = [
+            { label: "Name", value: cvData.name || "" },
+            { label: "Email", value: cvData.email || "" },
+            { label: "Phone", value: cvData.phone || "" },
+            { label: "LinkedIn", value: cvData.linkedin || "" }
+        ].filter((row) => hasText(row.value));
+
+        target.push(createWordHeading("Personal Info", styleOptions));
+        rows.forEach((row) => target.push(createWordKeyValue(row.label, row.value, personalOptions)));
+        return;
+    }
+
+    if (sectionId === "skills") {
+        const entries = normalizeArray(cvData.skills).map((skill) => String(skill || "").trim()).filter(Boolean);
+        if (entries.length === 0) {
+            return;
+        }
+        addWordSkills(target, cvData.skills, styleOptions);
+        return;
+    }
+
+    if (sectionId === "certifications") {
+        if (getValidRichEntries(cvData.certifications).length === 0) {
+            return;
+        }
+        addWordSectionFromHtmlArray(target, "Certifications", cvData.certifications, styleOptions);
+        return;
+    }
+
+    if (sectionId === "awards") {
+        if (getValidRichEntries(cvData.awards).length === 0) {
+            return;
+        }
+        addWordSectionFromHtmlArray(target, "Awards", cvData.awards, styleOptions);
+        return;
+    }
+
+    if (sectionId === "summary") {
+        if (!hasText(cvData.summary)) {
+            return;
+        }
+        addWordSectionFromString(target, "Profile Summary", cvData.summary, styleOptions);
+        return;
+    }
+
+    if (sectionId === "work") {
+        if (getValidRichEntries(cvData.workExperience).length === 0) {
+            return;
+        }
+        addWordSectionFromHtmlArray(target, "Work Experience", cvData.workExperience, styleOptions);
+        return;
+    }
+
+    if (sectionId === "volunteer") {
+        if (getValidRichEntries(cvData.volunteerExperience).length === 0) {
+            return;
+        }
+        addWordSectionFromHtmlArray(target, "Volunteer Experience", cvData.volunteerExperience, styleOptions);
+        return;
+    }
+
+    if (sectionId === "education") {
+        if (getValidEducationEntries(cvData.education).length === 0) {
+            return;
+        }
+        addWordEducation(target, cvData.education, styleOptions);
+        return;
+    }
+
+    if (sectionId === "projects") {
+        if (getValidRichEntries(cvData.projects).length === 0) {
+            return;
+        }
+        addWordSectionFromHtmlArray(target, "Projects", cvData.projects, styleOptions);
+        return;
+    }
+
+    if (sectionId === "additional-info") {
+        if (getValidRichEntries([cvData.additionalInfo || ""]).length === 0) {
+            return;
+        }
+        addWordSectionFromHtmlArray(target, "Additional Info", [cvData.additionalInfo], styleOptions);
+    }
+};
+
 const buildWordTemplateA = (cvData) => {
     const left = [];
     const right = [];
-
-    left.push(createWordHeading("Personal Info", { borderColor: "D1D5DB", headingColor: "111827" }));
-    left.push(createWordKeyValue("Name", cvData.name || "N/A"));
-    left.push(createWordKeyValue("Email", cvData.email || "N/A"));
-    left.push(createWordKeyValue("Phone", cvData.phone || "N/A"));
-    left.push(createWordKeyValue("LinkedIn", cvData.linkedin || "N/A"));
-
-    addWordSkills(left, cvData.skills, { borderColor: "D1D5DB", headingColor: "111827" });
-    addWordSectionFromHtmlArray(left, "Certifications", cvData.certifications, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordSectionFromHtmlArray(left, "Awards", cvData.awards, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-
-    addWordSectionFromString(right, "Profile Summary", cvData.summary, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordSectionFromHtmlArray(right, "Work Experience", cvData.workExperience, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordSectionFromHtmlArray(right, "Volunteer Experience", cvData.volunteerExperience, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordEducation(right, cvData.education, { borderColor: "D1D5DB", headingColor: "111827" });
-    addWordSectionFromHtmlArray(right, "Projects", cvData.projects, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
+    const style = { borderColor: "D1D5DB", headingColor: "111827" };
+    const sectionLayout = normalizeSectionLayout(cvData?.sectionLayout, cvData || {});
+    const ordered = getOutputSectionsForTemplate(sectionLayout, "A", cvData || {});
+    ordered.right.forEach((sectionId) => addWordSectionById(right, sectionId, cvData, style));
 
     return {
         left,
@@ -764,22 +923,13 @@ const buildWordTemplateB = (cvData) => {
 
     const leftHeadingStyle = { borderColor: "E2E8F0", headingColor: "E2E8F0" };
     const rightHeadingStyle = { borderColor: "1F3B63", headingColor: "1F3B63" };
+    const sectionLayout = normalizeSectionLayout(cvData?.sectionLayout, cvData || {});
+    const ordered = getOutputSectionsForTemplate(sectionLayout, "B", cvData || {});
 
-    left.push(createWordHeading("Personal Info", leftHeadingStyle));
-    left.push(createWordKeyValue("Name", cvData.name || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-    left.push(createWordKeyValue("Email", cvData.email || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-    left.push(createWordKeyValue("Phone", cvData.phone || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-    left.push(createWordKeyValue("LinkedIn", cvData.linkedin || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-
-    addWordSkills(left, cvData.skills, leftHeadingStyle);
-    addWordSectionFromHtmlArray(left, "Certifications", cvData.certifications, leftHeadingStyle);
-    addWordSectionFromHtmlArray(left, "Awards", cvData.awards, leftHeadingStyle);
-
-    addWordSectionFromString(right, "Profile Summary", cvData.summary, rightHeadingStyle);
-    addWordSectionFromHtmlArray(right, "Work Experience", cvData.workExperience, rightHeadingStyle);
-    addWordSectionFromHtmlArray(right, "Volunteer Experience", cvData.volunteerExperience, rightHeadingStyle);
-    addWordEducation(right, cvData.education, rightHeadingStyle);
-    addWordSectionFromHtmlArray(right, "Projects", cvData.projects, rightHeadingStyle);
+    ordered.left.forEach((sectionId) =>
+        addWordSectionById(left, sectionId, cvData, leftHeadingStyle, { color: "F8FAFC", labelColor: "E2E8F0" })
+    );
+    ordered.right.forEach((sectionId) => addWordSectionById(right, sectionId, cvData, rightHeadingStyle));
 
     return {
         left,

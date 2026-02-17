@@ -27,6 +27,14 @@
     width: 65%;
 }
 
+.preview-container.template-A .left-column:empty {
+    display: none;
+}
+
+.preview-container.template-A .left-column:empty + .right-column {
+    width: 100%;
+}
+
 .preview-container.template-A h3 {
     margin: 0 0 8px;
     font-size: 1.1rem;

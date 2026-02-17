@@ -2,24 +2,43 @@
 
 OnClickCV is a full-stack CV builder for creating professional CVs with live preview, template switching, and export to PDF/Word.
 
-## What's New in V2.1
+## What's New in V2.6
 
-V2.1 focuses on precision and preview/export parity:
+V2.6 focuses on output hygiene, completion clarity, and mobile safety:
 
-- **Virtual A4 paged preview** (stacked pages with page labels instead of one long canvas)
-- **Dark mode shell + white paper invariant** (preview paper remains white for print realism)
-- **Accordion form UX** with cleaner sectioned editing
-- **Form guardrails**:
-  - profile summary word counter
-  - rich-text draft word counters
-  - non-blocking warnings for long entries
-  - non-blocking section overfill warning based on preview layout metrics
-- **Template B stability tuning** (better grid behavior and long-content wrapping)
-- **Improved export parity** for PDF/Word:
-  - date formatting consistency (`Sep 2001 - Jul 2003`)
-  - rich-text normalization for cleaner output
-  - PDF break-control wrappers to reduce awkward mid-item page cuts
-  - Word keeps two-column template structure with improved section rendering
+- **No empty optional sections in output**:
+  - Preview/PDF/Word now omit empty optional sections (no `N/A` ghost blocks)
+  - Section order is still respected, but filtered by real content
+- **Core-based completion model**:
+  - Completion is based on core readiness (`Personal + Skills + Education + (Work OR Projects)`)
+  - Optional sections no longer prevent users from reaching 100%
+- **Template ordering and layout resilience**:
+  - Template A linear ordering preserved for professional one-column output
+  - Stale/legacy section layouts are normalized safely without hiding populated data
+- **Card-stack stability improvements**:
+  - Utility cards are fixed in place in editor order
+  - Added **Additional Info** section (ReactQuill) before Template & Export
+- **Mobile usability fix**:
+  - Card stack keeps bottom safe space so floating preview controls do not block last cards
+
+## What's New in V2.6.1
+
+V2.6.1 adds smart export filename control:
+
+- **Smart filename picker** in both:
+  - Template & Export card
+  - Mobile Preview Modal
+- **Suggestions + editable input**:
+  - 3 CV-aware suggestions generated from profile data and template
+  - User can select a suggestion or type a custom base filename
+- **Safe filename normalization**:
+  - Invalid filename characters removed
+  - Repeated separators collapsed
+  - Base filename length capped
+  - Extension applied by export type (`.pdf` / `.docx`)
+- **Session-only behavior**:
+  - Filename preference stays in local UI state
+  - No database schema/persistence changes required for filename settings
 
 ## Prerequisites
 

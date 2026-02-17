@@ -2,6 +2,7 @@ import React, { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Simulate } from "react-dom/test-utils";
 import CVForm from "./CVForm";
+import { getDefaultSectionLayout } from "../utils/sectionLayout";
 
 jest.mock("react-quill", () => {
     return function MockReactQuill({ value, onChange, placeholder }) {
@@ -28,7 +29,9 @@ const baseCvData = {
     skills: [],
     projects: [],
     certifications: [],
-    awards: []
+    awards: [],
+    additionalInfo: "",
+    sectionLayout: getDefaultSectionLayout()
 };
 
 const templateOptions = [
@@ -36,33 +39,46 @@ const templateOptions = [
     { value: "B", label: "Template B (Modern Sidebar)" }
 ];
 
-const FormHarness = () => {
+const FormHarness = ({ layoutMetrics, onExport = () => {} }) => {
     const [cvData, setCvData] = useState(baseCvData);
+    const [exportName, setExportName] = useState("JaneDoe_Resume_TemplateA_2026-02-17");
 
     return (
         <CVForm
             cvData={cvData}
             setCvData={setCvData}
+            sectionLayout={cvData.sectionLayout}
+            setSectionLayout={(nextLayout) => setCvData((prev) => ({ ...prev, sectionLayout: nextLayout }))}
             template="A"
             setTemplate={() => {}}
             templateOptions={templateOptions}
-            onExport={() => {}}
+            onExport={onExport}
             isExporting={false}
             exportingFormat=""
             exportError={null}
+            exportFileBaseName={exportName}
+            onExportFileBaseNameChange={setExportName}
+            exportFileSuggestions={[
+                "JaneDoe_Resume_TemplateA_2026-02-17",
+                "JaneDoe_CV_TemplateA_2026-02-17",
+                "CV_TemplateA_2026-02-17"
+            ]}
             onSave={() => {}}
             onLoad={() => {}}
-            layoutMetrics={{
-                totalPages: 1,
-                sectionHeights: {},
-                pageContentHeight: 1075
-            }}
+            layoutMetrics={
+                layoutMetrics || {
+                    totalPages: 1,
+                    sectionHeights: {},
+                    pageContentHeight: 1075
+                }
+            }
+            isMobile={false}
         />
     );
 };
 
-const getButtonByText = (container, textPattern) =>
-    Array.from(container.querySelectorAll("button")).find((button) => textPattern.test(button.textContent));
+const getCardBySectionId = (container, sectionId) =>
+    container.querySelector(`.card-stack-item[data-section-id="${sectionId}"]`);
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -87,27 +103,29 @@ describe("CVForm", () => {
         container.remove();
     });
 
-    it("opens and closes accordion sections", () => {
+    it("opens and closes simple card sections", () => {
         expect(container.querySelector("#cv-name")).not.toBeNull();
 
-        const personalToggle = getButtonByText(container, /personal info/i);
+        const personalCard = getCardBySectionId(container, "personal");
+        const personalToggle = personalCard.querySelector(".card-action-btn");
         act(() => {
             Simulate.click(personalToggle);
         });
 
         expect(container.querySelector("#cv-name")).toBeNull();
 
-        const skillsToggle = getButtonByText(container, /skills/i);
+        const skillsCard = getCardBySectionId(container, "skills");
+        const skillsToggle = skillsCard.querySelector(".card-action-btn");
         act(() => {
             Simulate.click(skillsToggle);
         });
 
         expect(container.querySelector('input[placeholder="e.g. Python, React"]')).not.toBeNull();
-        expect(container.querySelector("#cv-name")).toBeNull();
     });
 
     it("adds and removes skill chips using Enter key", () => {
-        const skillsToggle = getButtonByText(container, /skills/i);
+        const skillsCard = getCardBySectionId(container, "skills");
+        const skillsToggle = skillsCard.querySelector(".card-action-btn");
         act(() => {
             Simulate.click(skillsToggle);
         });
@@ -128,7 +146,7 @@ describe("CVForm", () => {
         );
         expect(chip).toBeTruthy();
 
-        const removeButton = container.querySelector('button[aria-label="Remove React"]');
+        const removeButton = Array.from(container.querySelectorAll(".chip-remove-btn"))[0];
         act(() => {
             Simulate.click(removeButton);
         });
@@ -140,7 +158,8 @@ describe("CVForm", () => {
     });
 
     it("shows live summary word counter", () => {
-        const summaryToggle = getButtonByText(container, /profile summary/i);
+        const summaryCard = getCardBySectionId(container, "summary");
+        const summaryToggle = summaryCard.querySelector(".card-action-btn");
         act(() => {
             Simulate.click(summaryToggle);
         });
@@ -156,21 +175,11 @@ describe("CVForm", () => {
     });
 
     it("shows section overflow warning from layout metrics", () => {
-        const OverflowHarness = () => {
-            const [cvData, setCvData] = useState(baseCvData);
-            return (
-                <CVForm
-                    cvData={cvData}
-                    setCvData={setCvData}
-                    template="A"
-                    setTemplate={() => {}}
-                    templateOptions={templateOptions}
-                    onExport={() => {}}
-                    isExporting={false}
-                    exportingFormat=""
-                    exportError={null}
-                    onSave={() => {}}
-                    onLoad={() => {}}
+        act(() => {
+            root.unmount();
+            root = createRoot(container);
+            root.render(
+                <FormHarness
                     layoutMetrics={{
                         totalPages: 2,
                         sectionHeights: { summary: 900 },
@@ -178,15 +187,10 @@ describe("CVForm", () => {
                     }}
                 />
             );
-        };
-
-        act(() => {
-            root.unmount();
-            root = createRoot(container);
-            root.render(<OverflowHarness />);
         });
 
-        const summaryToggle = getButtonByText(container, /profile summary/i);
+        const summaryCard = getCardBySectionId(container, "summary");
+        const summaryToggle = summaryCard.querySelector(".card-action-btn");
         act(() => {
             Simulate.click(summaryToggle);
         });
@@ -194,5 +198,71 @@ describe("CVForm", () => {
         expect(container.textContent).toContain(
             "This section is getting long; consider condensing for a 1-page CV."
         );
+    });
+
+    it("opens complex section in dedicated editor overlay", () => {
+        const workCard = getCardBySectionId(container, "work");
+        const editButton = workCard.querySelector(".card-action-btn");
+
+        act(() => {
+            Simulate.click(editButton);
+        });
+
+        expect(container.querySelector('[aria-label="Work editor"]')).not.toBeNull();
+
+        const doneButton = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Done");
+        act(() => {
+            Simulate.click(doneButton);
+        });
+
+        expect(container.querySelector('[aria-label="Work editor"]')).toBeNull();
+    });
+
+    it("keeps utility cards non-draggable and shows additional info card", () => {
+        const templateCard = getCardBySectionId(container, "template-export");
+        const saveLoadCard = getCardBySectionId(container, "save-load");
+        const additionalInfoCard = getCardBySectionId(container, "additional-info");
+
+        expect(templateCard.getAttribute("draggable")).toBe("false");
+        expect(saveLoadCard.getAttribute("draggable")).toBe("false");
+        expect(additionalInfoCard).not.toBeNull();
+    });
+
+    it("renders export filename picker in template-export section", () => {
+        const templateCard = getCardBySectionId(container, "template-export");
+        const toggle = templateCard.querySelector(".card-action-btn");
+        act(() => {
+            Simulate.click(toggle);
+        });
+
+        expect(container.querySelector("#export-filename")).not.toBeNull();
+        expect(container.querySelectorAll(".filename-suggestion-chip").length).toBeGreaterThan(0);
+    });
+
+    it("passes filename to export action", () => {
+        const onExport = jest.fn();
+
+        act(() => {
+            root.unmount();
+            root = createRoot(container);
+            root.render(<FormHarness onExport={onExport} />);
+        });
+
+        const templateCard = getCardBySectionId(container, "template-export");
+        act(() => {
+            Simulate.click(templateCard.querySelector(".card-action-btn"));
+        });
+
+        const filenameInput = container.querySelector("#export-filename");
+        act(() => {
+            Simulate.change(filenameInput, { target: { value: "Custom CV Name" } });
+        });
+
+        const pdfBtn = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Export PDF");
+        act(() => {
+            Simulate.click(pdfBtn);
+        });
+
+        expect(onExport).toHaveBeenCalledWith("pdf", "Custom CV Name");
     });
 });

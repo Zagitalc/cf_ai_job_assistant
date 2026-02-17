@@ -22,7 +22,13 @@ const CVSchema = new mongoose.Schema({
     projects: [String], // HTML strings
     certifications: [String], // HTML strings
     awards: [String], // HTML strings
+    additionalInfo: String, // HTML string
     interests: String,
+    sectionLayout: {
+        left: [String],
+        right: [String],
+        editorCardOrder: [String]
+    },
     userId: String, // Optional: for user authentication
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },

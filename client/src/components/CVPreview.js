@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { getOutputSectionsForTemplate } from "../utils/sectionLayout";
 import "./../templates/templateA.css";
 import "./../templates/TemplateB.css";
 
@@ -141,7 +142,7 @@ export const splitRichHtmlSegments = (html = "") => {
     return segments.length > 0 ? segments : [normalized];
 };
 
-export const buildPreviewColumns = (cvData) => {
+const buildSectionBlocks = (cvData, nextId) => {
     const {
         name,
         email,
@@ -154,96 +155,37 @@ export const buildPreviewColumns = (cvData) => {
         skills,
         projects,
         certifications,
-        awards
+        awards,
+        additionalInfo
     } = cvData;
 
-    let blockId = 0;
-    const nextId = (prefix) => `${prefix}-${blockId++}`;
-
-    const leftBlocks = [];
-    const rightBlocks = [];
-
-    leftBlocks.push({
-        id: nextId("personal-heading"),
-        sectionKey: "personal",
-        kind: "heading",
-        title: "Personal Info",
-        keepWithNext: true
-    });
-    leftBlocks.push({
-        id: nextId("personal-content"),
-        sectionKey: "personal",
-        kind: "keyValueList",
-        rows: [
-            { label: "Name", value: name || "N/A" },
-            { label: "Email", value: email || "N/A" },
-            { label: "Phone", value: phone || "N/A" },
-            { label: "LinkedIn", value: linkedin || "N/A" }
-        ]
-    });
-
-    leftBlocks.push({
-        id: nextId("skills-heading"),
-        sectionKey: "skills",
-        kind: "heading",
-        title: "Skills",
-        keepWithNext: true
-    });
-
-    const validSkills = (skills || []).filter((skill) => String(skill || "").trim());
-    if (validSkills.length > 0) {
-        leftBlocks.push({
-            id: nextId("skills-content"),
-            sectionKey: "skills",
-            kind: "list",
-            items: validSkills
-        });
-    } else {
-        leftBlocks.push({
-            id: nextId("skills-empty"),
-            sectionKey: "skills",
-            kind: "empty",
-            text: "N/A"
-        });
-    }
-
-    const pushRichSection = (target, sectionKey, title, entries) => {
-        target.push({
-            id: nextId(`${sectionKey}-heading`),
-            sectionKey,
-            kind: "heading",
-            title,
-            keepWithNext: true
-        });
+    const pushRichSection = (sectionKey, title, entries) => {
+        const blocks = [
+            {
+                id: nextId(`${sectionKey}-heading`),
+                sectionKey,
+                kind: "heading",
+                title,
+                keepWithNext: true
+            }
+        ];
 
         const validEntries = (entries || [])
             .map((entry) => normalizeRichHtmlForPreview(entry))
             .filter((entry) => !isRichTextEmpty(entry));
 
         if (validEntries.length === 0) {
-            target.push({
-                id: nextId(`${sectionKey}-empty`),
-                sectionKey,
-                kind: "empty",
-                text: "N/A"
-            });
-            return;
+            return [];
         }
 
         validEntries.forEach((entry, entryIndex) => {
             const segments = splitRichHtmlSegments(entry);
             if (segments.length === 0) {
-                target.push({
-                    id: nextId(`${sectionKey}-${entryIndex}-empty`),
-                    sectionKey,
-                    kind: "empty",
-                    text: "N/A"
-                });
                 return;
             }
 
             segments.forEach((segment, segmentIndex) => {
-                target.push({
+                blocks.push({
                     id: nextId(`${sectionKey}-${entryIndex}-${segmentIndex}`),
                     sectionKey,
                     kind: "html",
@@ -251,76 +193,133 @@ export const buildPreviewColumns = (cvData) => {
                 });
             });
         });
+
+        return blocks;
     };
 
-    pushRichSection(leftBlocks, "certifications", "Certifications", certifications);
-    pushRichSection(leftBlocks, "awards", "Awards", awards);
+    const sections = {};
 
-    rightBlocks.push({
-        id: nextId("summary-heading"),
-        sectionKey: "summary",
-        kind: "heading",
-        title: "Profile Summary",
-        keepWithNext: true
-    });
+    sections.personal = [
+        {
+            id: nextId("personal-heading"),
+            sectionKey: "personal",
+            kind: "heading",
+            title: "Personal Info",
+            keepWithNext: true
+        }
+    ];
+    const personalRows = [
+        { label: "Name", value: name || "" },
+        { label: "Email", value: email || "" },
+        { label: "Phone", value: phone || "" },
+        { label: "LinkedIn", value: linkedin || "" }
+    ].filter((row) => String(row.value || "").trim());
+    if (personalRows.length > 0) {
+        sections.personal.push({
+            id: nextId("personal-content"),
+            sectionKey: "personal",
+            kind: "keyValueList",
+            rows: personalRows
+        });
+    }
+
+    const validSkills = (skills || []).filter((skill) => String(skill || "").trim());
+    sections.skills = [
+        {
+            id: nextId("skills-heading"),
+            sectionKey: "skills",
+            kind: "heading",
+            title: "Skills",
+            keepWithNext: true
+        },
+        ...(validSkills.length > 0
+            ? [
+                  {
+                      id: nextId("skills-content"),
+                      sectionKey: "skills",
+                      kind: "list",
+                      items: validSkills
+                  }
+              ]
+            : [])
+    ];
+
     const summaryLines = String(summary || "")
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean);
-    if (summaryLines.length === 0) {
-        rightBlocks.push({
-            id: nextId("summary-empty"),
+
+    sections.summary = [
+        {
+            id: nextId("summary-heading"),
             sectionKey: "summary",
-            kind: "empty",
-            text: "N/A"
-        });
-    } else {
-        summaryLines.forEach((line, index) => {
-            rightBlocks.push({
-                id: nextId(`summary-content-${index}`),
-                sectionKey: "summary",
-                kind: "text",
-                text: line
-            });
-        });
-    }
+            kind: "heading",
+            title: "Profile Summary",
+            keepWithNext: true
+        },
+        ...(summaryLines.length === 0
+            ? []
+            : summaryLines.map((line, index) => ({
+                  id: nextId(`summary-content-${index}`),
+                  sectionKey: "summary",
+                  kind: "text",
+                  text: line
+              })))
+    ];
 
-    pushRichSection(rightBlocks, "work", "Work Experience", workExperience);
-    pushRichSection(rightBlocks, "volunteer", "Volunteer Experience", volunteerExperience);
+    sections.work = pushRichSection("work", "Work Experience", workExperience);
+    sections.volunteer = pushRichSection("volunteer", "Volunteer Experience", volunteerExperience);
 
-    rightBlocks.push({
-        id: nextId("education-heading"),
-        sectionKey: "education",
-        kind: "heading",
-        title: "Education",
-        keepWithNext: true
+    sections.education = [
+        {
+            id: nextId("education-heading"),
+            sectionKey: "education",
+            kind: "heading",
+            title: "Education",
+            keepWithNext: true
+        },
+        ...((education || []).length > 0
+            ? (education || []).map((edu) => ({
+                  id: nextId("education-entry"),
+                  sectionKey: "education",
+                  kind: "education",
+                  education: {
+                      school: edu.school || "",
+                      degree: edu.degree || "",
+                      location: edu.location || "",
+                      dateRange: formatDateRange(edu.startDate, edu.endDate),
+                      additionalInfo: normalizeRichHtmlForPreview(edu.additionalInfo || "")
+                  }
+              }))
+            : [])
+    ];
+
+    sections.projects = pushRichSection("projects", "Projects", projects);
+    sections.certifications = pushRichSection("certifications", "Certifications", certifications);
+    sections.awards = pushRichSection("awards", "Awards", awards);
+    sections["additional-info"] = pushRichSection("additional-info", "Additional Info", [additionalInfo || ""]);
+
+    return sections;
+};
+
+export const buildPreviewColumns = (cvData, sectionLayout, template) => {
+    let blockId = 0;
+    const nextId = (prefix) => `${prefix}-${blockId++}`;
+    const sectionBlocks = buildSectionBlocks(cvData, nextId);
+    const ordered = getOutputSectionsForTemplate(sectionLayout, template, cvData);
+
+    const leftBlocks = [];
+    const rightBlocks = [];
+
+    ordered.left.forEach((sectionId) => {
+        const blocks = sectionBlocks[sectionId] || [];
+        leftBlocks.push(...blocks);
     });
 
-    if ((education || []).length > 0) {
-        education.forEach((edu) => {
-            rightBlocks.push({
-                id: nextId("education-entry"),
-                sectionKey: "education",
-                kind: "education",
-                education: {
-                    school: edu.school || "N/A",
-                    degree: edu.degree || "N/A",
-                    location: edu.location || "N/A",
-                    dateRange: formatDateRange(edu.startDate, edu.endDate),
-                    additionalInfo: normalizeRichHtmlForPreview(edu.additionalInfo || "")
-                }
-            });
-        });
-    } else {
-        rightBlocks.push({
-            id: nextId("education-empty"),
-            sectionKey: "education",
-            kind: "empty",
-            text: "N/A"
-        });
-    }
-
-    pushRichSection(rightBlocks, "projects", "Projects", projects);
+    ordered.right.forEach((sectionId) => {
+        const blocks = sectionBlocks[sectionId] || [];
+        rightBlocks.push(...blocks);
+    });
 
     return { leftBlocks, rightBlocks };
 };
@@ -355,7 +354,9 @@ export const estimateBlockHeight = (block) => {
 
     if (block.kind === "education") {
         const edu = block.education || {};
-        const words = countWords(`${edu.school || ""} ${edu.degree || ""} ${edu.location || ""} ${edu.dateRange || ""} ${stripHtmlToText(edu.additionalInfo || "")}`);
+        const words = countWords(
+            `${edu.school || ""} ${edu.degree || ""} ${edu.location || ""} ${edu.dateRange || ""} ${stripHtmlToText(edu.additionalInfo || "")}`
+        );
         return 90 + Math.max(1, words) * 3;
     }
 
@@ -459,12 +460,13 @@ const renderBlock = (block) => {
 
     if (block.kind === "education") {
         const edu = block.education || {};
+        const hasDateRange = String(edu.dateRange || "").trim() && edu.dateRange !== "N/A";
         return (
             <div className="preview-education-entry">
-                <div className="preview-education-school">{edu.school || "N/A"}</div>
-                <div>{edu.degree || "N/A"}</div>
-                <div>{edu.location || "N/A"}</div>
-                <div className="preview-education-dates">{edu.dateRange || "N/A"}</div>
+                {edu.school ? <div className="preview-education-school">{edu.school}</div> : null}
+                {edu.degree ? <div>{edu.degree}</div> : null}
+                {edu.location ? <div>{edu.location}</div> : null}
+                {hasDateRange ? <div className="preview-education-dates">{edu.dateRange}</div> : null}
                 {edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo) ? (
                     <div className="preview-rich-entry" dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
                 ) : null}
@@ -487,12 +489,15 @@ const renderBlockList = (blocks) =>
         </div>
     ));
 
-const CVPreview = ({ cvData, template, onLayoutMetricsChange }) => {
+const CVPreview = ({ cvData, sectionLayout, template, onLayoutMetricsChange }) => {
     const safeTemplate = template === "B" ? "B" : "A";
     const measurementRef = useRef(null);
     const metricsSignatureRef = useRef("");
 
-    const columns = useMemo(() => buildPreviewColumns(cvData), [cvData]);
+    const columns = useMemo(
+        () => buildPreviewColumns(cvData, sectionLayout, safeTemplate),
+        [cvData, sectionLayout, safeTemplate]
+    );
     const [pagedColumns, setPagedColumns] = useState([
         {
             left: columns.leftBlocks,
