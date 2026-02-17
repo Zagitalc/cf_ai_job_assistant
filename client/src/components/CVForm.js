@@ -1,28 +1,15 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import ReactQuill from "react-quill";
+import SectionEditorOverlay from "./SectionEditorOverlay";
+import SectionCard from "./forms/SectionCard";
+import { SECTION_REGISTRY } from "../constants/sectionRegistry";
+import { canDragSection, reorderEditorCards } from "../utils/sectionLayout";
 import "react-quill/dist/quill.snow.css";
 
 const FALLBACK_TEMPLATE_OPTIONS = [
     { value: "A", label: "Template A (Clean)" },
     { value: "B", label: "Template B (Modern Sidebar)" }
 ];
-
-const Section = ({ title, isOpen, onToggle, children }) => (
-    <section className="cv-section-card">
-        <button
-            type="button"
-            onClick={onToggle}
-            className="cv-section-toggle"
-            aria-expanded={isOpen}
-        >
-            <span>{title}</span>
-            <span className="cv-section-symbol" aria-hidden="true">
-                {isOpen ? "−" : "+"}
-            </span>
-        </button>
-        {isOpen ? <div className="cv-section-body">{children}</div> : null}
-    </section>
-);
 
 const isRichTextEmpty = (value) => !value || value === "<p><br></p>" || value.trim() === "";
 
@@ -79,6 +66,8 @@ const formatDateRange = (startDate, endDate) => {
 const CVForm = ({
     cvData,
     setCvData,
+    sectionLayout,
+    setSectionLayout,
     template,
     setTemplate,
     templateOptions,
@@ -88,7 +77,8 @@ const CVForm = ({
     exportError,
     onSave,
     onLoad,
-    layoutMetrics
+    layoutMetrics,
+    isMobile
 }) => {
     const [newSkill, setNewSkill] = useState("");
     const [newCert, setNewCert] = useState("");
@@ -105,7 +95,9 @@ const CVForm = ({
     const [newVolunteer, setNewVolunteer] = useState("");
     const [newProject, setNewProject] = useState("");
     const [userId, setUserId] = useState("");
-    const [openSection, setOpenSection] = useState("personal");
+    const [openSimpleSection, setOpenSimpleSection] = useState("personal");
+    const [activeComplexSection, setActiveComplexSection] = useState("");
+    const [draggingSectionId, setDraggingSectionId] = useState("");
 
     const availableTemplates =
         templateOptions && templateOptions.length > 0
@@ -143,10 +135,6 @@ const CVForm = ({
     const projectWarnings = getLongEntryWarnings(cvData.projects, "Project entry");
     const certificationWarnings = getLongEntryWarnings(cvData.certifications, "Certification entry");
     const awardWarnings = getLongEntryWarnings(cvData.awards, "Award entry");
-
-    const toggleSection = (sectionId) => {
-        setOpenSection((currentSection) => (currentSection === sectionId ? "" : sectionId));
-    };
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -308,554 +296,562 @@ const CVForm = ({
         }
     };
 
-    return (
-        <form className="cv-form" aria-label="CV Form">
-            <h2 className="cv-form-title">CV Form</h2>
+    const sectionStatus = (sectionId) => {
+        if (sectionId === "summary") {
+            return `${summaryWordCount} words`;
+        }
 
-            <Section
-                title="Personal Info"
-                isOpen={openSection === "personal"}
-                onToggle={() => toggleSection("personal")}
-            >
-                {getSectionOverflowWarning("personal") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("personal")}</div>
-                ) : null}
-                <div className="form-grid two-col">
-                    <div>
-                        <label htmlFor="cv-name" className="form-label">Name</label>
-                        <input
-                            id="cv-name"
-                            name="name"
-                            value={cvData.name || ""}
-                            onChange={handleChange}
-                            placeholder="John Doe"
-                            className="form-input"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="cv-email" className="form-label">Email</label>
-                        <input
-                            id="cv-email"
-                            name="email"
-                            value={cvData.email || ""}
-                            onChange={handleChange}
-                            placeholder="john@example.com"
-                            className="form-input"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="cv-phone" className="form-label">Phone</label>
-                        <input
-                            id="cv-phone"
-                            name="phone"
-                            value={cvData.phone || ""}
-                            onChange={handleChange}
-                            placeholder="(123) 456-7890"
-                            className="form-input"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="cv-linkedin" className="form-label">LinkedIn</label>
-                        <input
-                            id="cv-linkedin"
-                            name="linkedin"
-                            value={cvData.linkedin || ""}
-                            onChange={handleChange}
-                            placeholder="https://linkedin.com/in/yourprofile"
-                            className="form-input"
-                        />
-                    </div>
-                </div>
-            </Section>
+        if (sectionId === "skills") {
+            return `${(cvData.skills || []).length} skills`;
+        }
 
-            <Section
-                title="Profile Summary"
-                isOpen={openSection === "summary"}
-                onToggle={() => toggleSection("summary")}
-            >
-                {getSectionOverflowWarning("summary") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("summary")}</div>
-                ) : null}
-                <label htmlFor="cv-summary" className="form-label">Profile Summary</label>
-                <textarea
-                    id="cv-summary"
-                    name="summary"
-                    value={cvData.summary || ""}
-                    onChange={handleChange}
-                    placeholder="Write a brief profile summary..."
-                    rows={4}
-                    className="form-textarea"
-                />
-                <div className="form-meta">Words: {summaryWordCount}</div>
-            </Section>
+        if (sectionId === "work") {
+            return `${(cvData.workExperience || []).length} entries`;
+        }
 
-            <Section
-                title="Work"
-                isOpen={openSection === "work"}
-                onToggle={() => toggleSection("work")}
-            >
-                {getSectionOverflowWarning("work") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("work")}</div>
-                ) : null}
-                <label className="form-label">Add Work Experience</label>
-                <ReactQuill
-                    theme="snow"
-                    value={newWork}
-                    onChange={setNewWork}
-                    placeholder="Describe your work experience..."
-                />
-                <div className="form-meta">Current draft words: {newWorkWordCount}</div>
-                {newWorkWordCount > 60 ? (
-                    <div className="form-warning">
-                        This draft is {newWorkWordCount} words. Aim for 30-60 words per entry.
-                    </div>
-                ) : null}
-                <button type="button" onClick={handleAddWork} className="add-btn">Add Work Experience</button>
-                {(cvData.workExperience || []).length > 0 && (
-                    <div className="entry-list">
-                        {(cvData.workExperience || []).map((work, idx) => (
-                            <div key={idx} className="entry-list-item">
-                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: work }} />
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveWork(idx)}
-                                    className="remove-btn"
-                                    aria-label={`Remove work experience ${idx + 1}`}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {workWarnings.length > 0 ? (
-                    <ul className="warning-list">
-                        {workWarnings.map((warning) => (
-                            <li key={warning}>{warning}</li>
-                        ))}
-                    </ul>
-                ) : null}
-            </Section>
+        if (sectionId === "volunteer") {
+            return `${(cvData.volunteerExperience || []).length} entries`;
+        }
 
-            <Section
-                title="Volunteer"
-                isOpen={openSection === "volunteer"}
-                onToggle={() => toggleSection("volunteer")}
-            >
-                {getSectionOverflowWarning("volunteer") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("volunteer")}</div>
-                ) : null}
-                <label className="form-label">Add Volunteer Experience</label>
-                <ReactQuill
-                    theme="snow"
-                    value={newVolunteer}
-                    onChange={setNewVolunteer}
-                    placeholder="Describe your volunteer experience..."
-                />
-                <div className="form-meta">Current draft words: {newVolunteerWordCount}</div>
-                {newVolunteerWordCount > 60 ? (
-                    <div className="form-warning">
-                        This draft is {newVolunteerWordCount} words. Aim for 30-60 words per entry.
-                    </div>
-                ) : null}
-                <button type="button" onClick={handleAddVolunteer} className="add-btn">Add Volunteer Experience</button>
-                {(cvData.volunteerExperience || []).length > 0 && (
-                    <div className="entry-list">
-                        {(cvData.volunteerExperience || []).map((volunteer, idx) => (
-                            <div key={idx} className="entry-list-item">
-                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: volunteer }} />
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveVolunteer(idx)}
-                                    className="remove-btn"
-                                    aria-label={`Remove volunteer experience ${idx + 1}`}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {volunteerWarnings.length > 0 ? (
-                    <ul className="warning-list">
-                        {volunteerWarnings.map((warning) => (
-                            <li key={warning}>{warning}</li>
-                        ))}
-                    </ul>
-                ) : null}
-            </Section>
+        if (sectionId === "projects") {
+            return `${(cvData.projects || []).length} entries`;
+        }
 
-            <Section
-                title="Projects"
-                isOpen={openSection === "projects"}
-                onToggle={() => toggleSection("projects")}
-            >
-                {getSectionOverflowWarning("projects") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("projects")}</div>
-                ) : null}
-                <label className="form-label">Add a Project</label>
-                <ReactQuill
-                    theme="snow"
-                    value={newProject}
-                    onChange={setNewProject}
-                    placeholder="Describe your project..."
-                />
-                <div className="form-meta">Current draft words: {newProjectWordCount}</div>
-                {newProjectWordCount > 60 ? (
-                    <div className="form-warning">
-                        This draft is {newProjectWordCount} words. Aim for 30-60 words per entry.
-                    </div>
-                ) : null}
-                <button type="button" onClick={handleAddProject} className="add-btn">Add Project</button>
-                {(cvData.projects || []).length > 0 && (
-                    <div className="entry-list">
-                        {(cvData.projects || []).map((project, idx) => (
-                            <div key={idx} className="entry-list-item">
-                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: project }} />
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveProject(idx)}
-                                    className="remove-btn"
-                                    aria-label={`Remove project ${idx + 1}`}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {projectWarnings.length > 0 ? (
-                    <ul className="warning-list">
-                        {projectWarnings.map((warning) => (
-                            <li key={warning}>{warning}</li>
-                        ))}
-                    </ul>
-                ) : null}
-            </Section>
+        if (sectionId === "education") {
+            return `${(cvData.education || []).length} entries`;
+        }
 
-            <Section
-                title="Skills"
-                isOpen={openSection === "skills"}
-                onToggle={() => toggleSection("skills")}
-            >
-                {getSectionOverflowWarning("skills") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("skills")}</div>
-                ) : null}
-                <label htmlFor="new-skill" className="form-label">Add a Skill</label>
-                <div className="skill-input-row">
-                    <input
-                        id="new-skill"
-                        type="text"
-                        value={newSkill}
-                        onChange={(event) => setNewSkill(event.target.value)}
-                        onKeyDown={handleSkillInputKeyDown}
-                        placeholder="e.g. Python, React"
-                        className="form-input"
-                    />
-                    <button type="button" onClick={handleAddSkill} className="add-btn">Add</button>
-                </div>
-                <div className="skill-chips">
-                    {(cvData.skills || []).map((skill, idx) => (
-                        <span key={`${skill}-${idx}`} className="skill-chip">
-                            <span>{skill}</span>
-                            <button
-                                type="button"
-                                onClick={() => handleRemoveSkill(idx)}
-                                className="chip-remove-btn"
-                                aria-label={`Remove ${skill}`}
-                            >
-                                ×
-                            </button>
-                        </span>
-                    ))}
-                </div>
-            </Section>
+        if (sectionId === "certifications") {
+            return `${(cvData.certifications || []).length} entries`;
+        }
 
-            <Section
-                title="Education"
-                isOpen={openSection === "education"}
-                onToggle={() => toggleSection("education")}
-            >
-                {getSectionOverflowWarning("education") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("education")}</div>
-                ) : null}
-                <div className="form-grid two-col">
-                    <div>
-                        <label htmlFor="edu-degree" className="form-label">Degree</label>
-                        <input
-                            id="edu-degree"
-                            name="degree"
-                            value={newEdu.degree}
-                            onChange={handleEduChange}
-                            placeholder="e.g., BSc in Computer Science"
-                            className="form-input"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="edu-school" className="form-label">School</label>
-                        <input
-                            id="edu-school"
-                            name="school"
-                            value={newEdu.school}
-                            onChange={handleEduChange}
-                            placeholder="e.g., Durham University"
-                            className="form-input"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="edu-location" className="form-label">Location</label>
-                        <input
-                            id="edu-location"
-                            name="location"
-                            value={newEdu.location}
-                            onChange={handleEduChange}
-                            placeholder="e.g., Durham, UK"
-                            className="form-input"
-                        />
-                    </div>
-                    <div className="form-grid two-col compact-gap">
+        if (sectionId === "awards") {
+            return `${(cvData.awards || []).length} entries`;
+        }
+
+        if (sectionId === "template-export") {
+            return "Actions";
+        }
+
+        if (sectionId === "save-load") {
+            return userId ? "Ready" : "Optional";
+        }
+
+        const hasData = SECTION_REGISTRY[sectionId]?.dataPresenceChecker?.(cvData);
+        return hasData ? "Complete" : "Needs info";
+    };
+
+    const sectionTone = (sectionId) => {
+        if (sectionId === "template-export" || sectionId === "save-load") {
+            return "neutral";
+        }
+
+        if (sectionId === "summary" && summaryWordCount > 160) {
+            return "warning";
+        }
+
+        if (
+            (sectionId === "work" && workWarnings.length > 0) ||
+            (sectionId === "volunteer" && volunteerWarnings.length > 0) ||
+            (sectionId === "projects" && projectWarnings.length > 0) ||
+            (sectionId === "certifications" && certificationWarnings.length > 0) ||
+            (sectionId === "awards" && awardWarnings.length > 0)
+        ) {
+            return "warning";
+        }
+
+        const hasData = SECTION_REGISTRY[sectionId]?.dataPresenceChecker?.(cvData);
+        return hasData ? "success" : "neutral";
+    };
+
+    const toggleSimpleSection = (sectionId) => {
+        setOpenSimpleSection((current) => (current === sectionId ? "" : sectionId));
+    };
+
+    const openComplexSection = (sectionId) => {
+        setActiveComplexSection(sectionId);
+    };
+
+    const closeComplexSection = () => {
+        setActiveComplexSection("");
+    };
+
+    const handleDragStart = (event, sectionId) => {
+        if (!canDragSection(sectionId)) {
+            event.preventDefault();
+            return;
+        }
+
+        setDraggingSectionId(sectionId);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", sectionId);
+    };
+
+    const handleDragOver = (event) => {
+        if (!draggingSectionId) {
+            return;
+        }
+
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = (event, sectionId) => {
+        event.preventDefault();
+
+        const activeId = draggingSectionId || event.dataTransfer.getData("text/plain");
+        if (!activeId || !sectionId || activeId === sectionId) {
+            setDraggingSectionId("");
+            return;
+        }
+
+        const nextLayout = reorderEditorCards(sectionLayout, activeId, sectionId, cvData);
+        setSectionLayout(nextLayout);
+        setDraggingSectionId("");
+    };
+
+    const renderSectionBody = (sectionId) => {
+        if (sectionId === "personal") {
+            return (
+                <>
+                    {getSectionOverflowWarning("personal") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("personal")}</div>
+                    ) : null}
+                    <div className="form-grid two-col">
                         <div>
-                            <label htmlFor="edu-start" className="form-label">Start Date</label>
+                            <label htmlFor="cv-name" className="form-label">Name</label>
                             <input
-                                id="edu-start"
-                                type="date"
-                                name="startDate"
-                                value={newEdu.startDate}
-                                onChange={handleEduChange}
+                                id="cv-name"
+                                name="name"
+                                value={cvData.name || ""}
+                                onChange={handleChange}
+                                placeholder="John Doe"
                                 className="form-input"
                             />
                         </div>
                         <div>
-                            <label htmlFor="edu-end" className="form-label">End Date</label>
+                            <label htmlFor="cv-email" className="form-label">Email</label>
                             <input
-                                id="edu-end"
-                                type="date"
-                                name="endDate"
-                                value={newEdu.endDate}
-                                onChange={handleEduChange}
+                                id="cv-email"
+                                name="email"
+                                value={cvData.email || ""}
+                                onChange={handleChange}
+                                placeholder="john@example.com"
+                                className="form-input"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="cv-phone" className="form-label">Phone</label>
+                            <input
+                                id="cv-phone"
+                                name="phone"
+                                value={cvData.phone || ""}
+                                onChange={handleChange}
+                                placeholder="(123) 456-7890"
+                                className="form-input"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="cv-linkedin" className="form-label">LinkedIn</label>
+                            <input
+                                id="cv-linkedin"
+                                name="linkedin"
+                                value={cvData.linkedin || ""}
+                                onChange={handleChange}
+                                placeholder="https://linkedin.com/in/yourprofile"
                                 className="form-input"
                             />
                         </div>
                     </div>
-                </div>
-                <div>
-                    <label className="form-label">Additional Info</label>
-                    <ReactQuill
-                        theme="snow"
-                        value={newEdu.additionalInfo}
-                        onChange={handleAdditionalInfoChange}
-                        placeholder="Optional details, honors, relevant coursework..."
+                </>
+            );
+        }
+
+        if (sectionId === "summary") {
+            return (
+                <>
+                    {getSectionOverflowWarning("summary") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("summary")}</div>
+                    ) : null}
+                    <label htmlFor="cv-summary" className="form-label">Profile Summary</label>
+                    <textarea
+                        id="cv-summary"
+                        name="summary"
+                        value={cvData.summary || ""}
+                        onChange={handleChange}
+                        placeholder="Write a brief profile summary..."
+                        rows={4}
+                        className="form-textarea"
                     />
-                    <div className="form-meta">Current draft words: {newEducationInfoWordCount}</div>
-                    {newEducationInfoWordCount > 60 ? (
-                        <div className="form-warning">
-                            This draft is {newEducationInfoWordCount} words. Aim for 30-60 words per entry.
+                    <div className="form-meta">Words: {summaryWordCount}</div>
+                </>
+            );
+        }
+
+        if (sectionId === "work") {
+            return (
+                <>
+                    {getSectionOverflowWarning("work") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("work")}</div>
+                    ) : null}
+                    <label className="form-label">Add Work Experience</label>
+                    <ReactQuill theme="snow" value={newWork} onChange={setNewWork} placeholder="Describe your work experience..." />
+                    <div className="form-meta">Current draft words: {newWorkWordCount}</div>
+                    {newWorkWordCount > 60 ? (
+                        <div className="form-warning">This draft is {newWorkWordCount} words. Aim for 30-60 words per entry.</div>
+                    ) : null}
+                    <button type="button" onClick={handleAddWork} className="add-btn">Add Work Experience</button>
+                    {(cvData.workExperience || []).length > 0 ? (
+                        <div className="entry-list">
+                            {(cvData.workExperience || []).map((work, idx) => (
+                                <div key={idx} className="entry-list-item">
+                                    <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: work }} />
+                                    <button type="button" onClick={() => handleRemoveWork(idx)} className="remove-btn">Remove</button>
+                                </div>
+                            ))}
                         </div>
                     ) : null}
-                </div>
-                <button type="button" onClick={handleAddEducation} className="add-btn">Add Education</button>
+                    {workWarnings.length > 0 ? (
+                        <ul className="warning-list">
+                            {workWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </>
+            );
+        }
 
-                {(cvData.education || []).length > 0 && (
-                    <div className="entry-list">
-                        {(cvData.education || []).map((edu, idx) => (
-                            <div key={idx} className="education-card">
-                                <button
-                                    type="button"
-                                    className="remove-btn"
-                                    onClick={() => handleRemoveEducation(idx)}
-                                    aria-label={`Remove education ${idx + 1}`}
-                                >
-                                    Remove
-                                </button>
-                                <div className="education-school">{edu.school || "N/A"}</div>
-                                <div>{edu.degree || "N/A"}</div>
-                                <div>{edu.location || "N/A"}</div>
-                                <div className="education-dates">
-                                    {formatDateRange(edu.startDate, edu.endDate)}
+        if (sectionId === "volunteer") {
+            return (
+                <>
+                    {getSectionOverflowWarning("volunteer") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("volunteer")}</div>
+                    ) : null}
+                    <label className="form-label">Add Volunteer Experience</label>
+                    <ReactQuill theme="snow" value={newVolunteer} onChange={setNewVolunteer} placeholder="Describe your volunteer experience..." />
+                    <div className="form-meta">Current draft words: {newVolunteerWordCount}</div>
+                    {newVolunteerWordCount > 60 ? (
+                        <div className="form-warning">This draft is {newVolunteerWordCount} words. Aim for 30-60 words per entry.</div>
+                    ) : null}
+                    <button type="button" onClick={handleAddVolunteer} className="add-btn">Add Volunteer Experience</button>
+                    {(cvData.volunteerExperience || []).length > 0 ? (
+                        <div className="entry-list">
+                            {(cvData.volunteerExperience || []).map((volunteer, idx) => (
+                                <div key={idx} className="entry-list-item">
+                                    <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: volunteer }} />
+                                    <button type="button" onClick={() => handleRemoveVolunteer(idx)} className="remove-btn">Remove</button>
                                 </div>
-                                {edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo) && (
-                                    <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
-                                )}
+                            ))}
+                        </div>
+                    ) : null}
+                    {volunteerWarnings.length > 0 ? (
+                        <ul className="warning-list">
+                            {volunteerWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </>
+            );
+        }
+
+        if (sectionId === "projects") {
+            return (
+                <>
+                    {getSectionOverflowWarning("projects") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("projects")}</div>
+                    ) : null}
+                    <label className="form-label">Add a Project</label>
+                    <ReactQuill theme="snow" value={newProject} onChange={setNewProject} placeholder="Describe your project..." />
+                    <div className="form-meta">Current draft words: {newProjectWordCount}</div>
+                    {newProjectWordCount > 60 ? (
+                        <div className="form-warning">This draft is {newProjectWordCount} words. Aim for 30-60 words per entry.</div>
+                    ) : null}
+                    <button type="button" onClick={handleAddProject} className="add-btn">Add Project</button>
+                    {(cvData.projects || []).length > 0 ? (
+                        <div className="entry-list">
+                            {(cvData.projects || []).map((project, idx) => (
+                                <div key={idx} className="entry-list-item">
+                                    <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: project }} />
+                                    <button type="button" onClick={() => handleRemoveProject(idx)} className="remove-btn">Remove</button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                    {projectWarnings.length > 0 ? (
+                        <ul className="warning-list">
+                            {projectWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </>
+            );
+        }
+
+        if (sectionId === "skills") {
+            return (
+                <>
+                    {getSectionOverflowWarning("skills") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("skills")}</div>
+                    ) : null}
+                    <label htmlFor="new-skill" className="form-label">Add a Skill</label>
+                    <div className="skill-input-row">
+                        <input
+                            id="new-skill"
+                            type="text"
+                            value={newSkill}
+                            onChange={(event) => setNewSkill(event.target.value)}
+                            onKeyDown={handleSkillInputKeyDown}
+                            placeholder="e.g. Python, React"
+                            className="form-input"
+                        />
+                        <button type="button" onClick={handleAddSkill} className="add-btn">Add</button>
+                    </div>
+                    <div className="skill-chips">
+                        {(cvData.skills || []).map((skill, idx) => (
+                            <span key={`${skill}-${idx}`} className="skill-chip">
+                                <span>{skill}</span>
+                                <button type="button" onClick={() => handleRemoveSkill(idx)} className="chip-remove-btn">×</button>
+                            </span>
+                        ))}
+                    </div>
+                </>
+            );
+        }
+
+        if (sectionId === "education") {
+            return (
+                <>
+                    {getSectionOverflowWarning("education") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("education")}</div>
+                    ) : null}
+                    <div className="form-grid two-col">
+                        <div>
+                            <label htmlFor="edu-degree" className="form-label">Degree</label>
+                            <input id="edu-degree" name="degree" value={newEdu.degree} onChange={handleEduChange} className="form-input" />
+                        </div>
+                        <div>
+                            <label htmlFor="edu-school" className="form-label">School</label>
+                            <input id="edu-school" name="school" value={newEdu.school} onChange={handleEduChange} className="form-input" />
+                        </div>
+                        <div>
+                            <label htmlFor="edu-location" className="form-label">Location</label>
+                            <input id="edu-location" name="location" value={newEdu.location} onChange={handleEduChange} className="form-input" />
+                        </div>
+                        <div className="form-grid two-col compact-gap">
+                            <div>
+                                <label htmlFor="edu-start" className="form-label">Start Date</label>
+                                <input id="edu-start" type="date" name="startDate" value={newEdu.startDate} onChange={handleEduChange} className="form-input" />
                             </div>
-                        ))}
-                    </div>
-                )}
-            </Section>
-
-            <Section
-                title="Certifications"
-                isOpen={openSection === "certifications"}
-                onToggle={() => toggleSection("certifications")}
-            >
-                {getSectionOverflowWarning("certifications") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("certifications")}</div>
-                ) : null}
-                <label className="form-label">Add a Certification</label>
-                <ReactQuill
-                    theme="snow"
-                    value={newCert}
-                    onChange={setNewCert}
-                    placeholder="e.g. AWS Certified Solutions Architect"
-                />
-                <div className="form-meta">Current draft words: {newCertWordCount}</div>
-                {newCertWordCount > 60 ? (
-                    <div className="form-warning">
-                        This draft is {newCertWordCount} words. Aim for 30-60 words per entry.
-                    </div>
-                ) : null}
-                <button type="button" onClick={handleAddCert} className="add-btn">Add Certification</button>
-                {(cvData.certifications || []).length > 0 && (
-                    <div className="entry-list">
-                        {(cvData.certifications || []).map((cert, idx) => (
-                            <div key={idx} className="entry-list-item">
-                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: cert }} />
-                                <button
-                                    type="button"
-                                    className="remove-btn"
-                                    onClick={() => handleRemoveCert(idx)}
-                                    aria-label={`Remove certification ${idx + 1}`}
-                                >
-                                    Remove
-                                </button>
+                            <div>
+                                <label htmlFor="edu-end" className="form-label">End Date</label>
+                                <input id="edu-end" type="date" name="endDate" value={newEdu.endDate} onChange={handleEduChange} className="form-input" />
                             </div>
-                        ))}
+                        </div>
                     </div>
-                )}
-                {certificationWarnings.length > 0 ? (
-                    <ul className="warning-list">
-                        {certificationWarnings.map((warning) => (
-                            <li key={warning}>{warning}</li>
-                        ))}
-                    </ul>
-                ) : null}
-            </Section>
-
-            <Section
-                title="Awards"
-                isOpen={openSection === "awards"}
-                onToggle={() => toggleSection("awards")}
-            >
-                {getSectionOverflowWarning("awards") ? (
-                    <div className="form-warning">{getSectionOverflowWarning("awards")}</div>
-                ) : null}
-                <label className="form-label">Add an Award</label>
-                <ReactQuill
-                    theme="snow"
-                    value={newAward}
-                    onChange={setNewAward}
-                    placeholder="e.g. Dean's List 2022"
-                />
-                <div className="form-meta">Current draft words: {newAwardWordCount}</div>
-                {newAwardWordCount > 60 ? (
-                    <div className="form-warning">
-                        This draft is {newAwardWordCount} words. Aim for 30-60 words per entry.
+                    <div>
+                        <label className="form-label">Additional Info</label>
+                        <ReactQuill theme="snow" value={newEdu.additionalInfo} onChange={handleAdditionalInfoChange} placeholder="Optional details, honors, relevant coursework..." />
+                        <div className="form-meta">Current draft words: {newEducationInfoWordCount}</div>
+                        {newEducationInfoWordCount > 60 ? (
+                            <div className="form-warning">This draft is {newEducationInfoWordCount} words. Aim for 30-60 words per entry.</div>
+                        ) : null}
                     </div>
-                ) : null}
-                <button type="button" onClick={handleAddAward} className="add-btn">Add Award</button>
-                {(cvData.awards || []).length > 0 && (
-                    <div className="entry-list">
-                        {(cvData.awards || []).map((award, idx) => (
-                            <div key={idx} className="entry-list-item">
-                                <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: award }} />
-                                <button
-                                    type="button"
-                                    className="remove-btn"
-                                    onClick={() => handleRemoveAward(idx)}
-                                    aria-label={`Remove award ${idx + 1}`}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {awardWarnings.length > 0 ? (
-                    <ul className="warning-list">
-                        {awardWarnings.map((warning) => (
-                            <li key={warning}>{warning}</li>
-                        ))}
-                    </ul>
-                ) : null}
-            </Section>
+                    <button type="button" onClick={handleAddEducation} className="add-btn">Add Education</button>
 
-            <Section
-                title="Template & Export"
-                isOpen={openSection === "template-export"}
-                onToggle={() => toggleSection("template-export")}
-            >
-                <label htmlFor="template-select" className="form-label">Template</label>
-                <select
-                    id="template-select"
-                    value={template}
-                    onChange={(event) => setTemplate(event.target.value)}
-                    className="form-select"
-                >
-                    {availableTemplates.map((option) => (
-                        <option key={option.value} value={option.value}>
-                            {option.label}
-                        </option>
-                    ))}
-                </select>
+                    {(cvData.education || []).length > 0 ? (
+                        <div className="entry-list">
+                            {(cvData.education || []).map((edu, idx) => (
+                                <div key={idx} className="education-card">
+                                    <button type="button" className="remove-btn" onClick={() => handleRemoveEducation(idx)}>Remove</button>
+                                    <div className="education-school">{edu.school || "N/A"}</div>
+                                    <div>{edu.degree || "N/A"}</div>
+                                    <div>{edu.location || "N/A"}</div>
+                                    <div className="education-dates">{formatDateRange(edu.startDate, edu.endDate)}</div>
+                                    {edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo) ? (
+                                        <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                </>
+            );
+        }
 
-                <div className="button-row">
-                    <button
-                        type="button"
-                        onClick={() => onExport("pdf")}
-                        disabled={isExporting}
-                        className="primary-btn"
-                    >
-                        <span className="btn-content">
-                            {isExporting && exportingFormat === "pdf" ? <span className="btn-spinner" aria-hidden="true" /> : null}
+        if (sectionId === "certifications") {
+            return (
+                <>
+                    {getSectionOverflowWarning("certifications") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("certifications")}</div>
+                    ) : null}
+                    <label className="form-label">Add a Certification</label>
+                    <ReactQuill theme="snow" value={newCert} onChange={setNewCert} placeholder="e.g. AWS Certified Solutions Architect" />
+                    <div className="form-meta">Current draft words: {newCertWordCount}</div>
+                    {newCertWordCount > 60 ? (
+                        <div className="form-warning">This draft is {newCertWordCount} words. Aim for 30-60 words per entry.</div>
+                    ) : null}
+                    <button type="button" onClick={handleAddCert} className="add-btn">Add Certification</button>
+                    {(cvData.certifications || []).length > 0 ? (
+                        <div className="entry-list">
+                            {(cvData.certifications || []).map((cert, idx) => (
+                                <div key={idx} className="entry-list-item">
+                                    <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: cert }} />
+                                    <button type="button" className="remove-btn" onClick={() => handleRemoveCert(idx)}>Remove</button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                    {certificationWarnings.length > 0 ? (
+                        <ul className="warning-list">
+                            {certificationWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </>
+            );
+        }
+
+        if (sectionId === "awards") {
+            return (
+                <>
+                    {getSectionOverflowWarning("awards") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("awards")}</div>
+                    ) : null}
+                    <label className="form-label">Add an Award</label>
+                    <ReactQuill theme="snow" value={newAward} onChange={setNewAward} placeholder="e.g. Dean's List 2022" />
+                    <div className="form-meta">Current draft words: {newAwardWordCount}</div>
+                    {newAwardWordCount > 60 ? (
+                        <div className="form-warning">This draft is {newAwardWordCount} words. Aim for 30-60 words per entry.</div>
+                    ) : null}
+                    <button type="button" onClick={handleAddAward} className="add-btn">Add Award</button>
+                    {(cvData.awards || []).length > 0 ? (
+                        <div className="entry-list">
+                            {(cvData.awards || []).map((award, idx) => (
+                                <div key={idx} className="entry-list-item">
+                                    <div className="entry-rich-text" dangerouslySetInnerHTML={{ __html: award }} />
+                                    <button type="button" className="remove-btn" onClick={() => handleRemoveAward(idx)}>Remove</button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                    {awardWarnings.length > 0 ? (
+                        <ul className="warning-list">
+                            {awardWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </>
+            );
+        }
+
+        if (sectionId === "template-export") {
+            return (
+                <>
+                    <label htmlFor="template-select" className="form-label">Template</label>
+                    <select id="template-select" value={template} onChange={(event) => setTemplate(event.target.value)} className="form-select">
+                        {availableTemplates.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                    </select>
+
+                    <div className="button-row">
+                        <button type="button" onClick={() => onExport("pdf")} disabled={isExporting} className="primary-btn">
                             {isExporting && exportingFormat === "pdf" ? "Generating PDF..." : "Export PDF"}
-                        </span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onExport("word")}
-                        disabled={isExporting}
-                        className="primary-btn"
-                    >
-                        <span className="btn-content">
-                            {isExporting && exportingFormat === "word" ? <span className="btn-spinner" aria-hidden="true" /> : null}
+                        </button>
+                        <button type="button" onClick={() => onExport("word")} disabled={isExporting} className="primary-btn">
                             {isExporting && exportingFormat === "word" ? "Generating Word..." : "Export Word"}
-                        </span>
-                    </button>
-                </div>
+                        </button>
+                    </div>
+                    {exportError ? <div className="form-error">{exportError}</div> : null}
+                </>
+            );
+        }
 
-                {exportError ? <div className="form-error">{exportError}</div> : null}
-            </Section>
+        if (sectionId === "save-load") {
+            return (
+                <>
+                    <label htmlFor="save-user-id" className="form-label">User ID</label>
+                    <div className="save-load-row">
+                        <input
+                            id="save-user-id"
+                            type="text"
+                            value={userId}
+                            onChange={(event) => setUserId(event.target.value)}
+                            placeholder="Enter User ID"
+                            className="form-input"
+                        />
+                        <button type="button" onClick={() => onSave && userId && onSave(userId)} className="add-btn">Save CV</button>
+                        <button type="button" onClick={() => onLoad && userId && onLoad(userId)} className="add-btn">Load CV</button>
+                    </div>
+                </>
+            );
+        }
 
-            <Section
-                title="Save / Load"
-                isOpen={openSection === "save-load"}
-                onToggle={() => toggleSection("save-load")}
-            >
-                <label htmlFor="save-user-id" className="form-label">User ID</label>
-                <div className="save-load-row">
-                    <input
-                        id="save-user-id"
-                        type="text"
-                        value={userId}
-                        onChange={(event) => setUserId(event.target.value)}
-                        placeholder="Enter User ID"
-                        className="form-input"
-                    />
-                    <button
-                        type="button"
-                        onClick={() => onSave && userId && onSave(userId)}
-                        className="add-btn"
-                    >
-                        Save CV
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onLoad && userId && onLoad(userId)}
-                        className="add-btn"
-                    >
-                        Load CV
-                    </button>
+        return null;
+    };
+
+    const orderedSections = useMemo(
+        () => (sectionLayout?.editorCardOrder || []).map((id) => SECTION_REGISTRY[id]).filter(Boolean),
+        [sectionLayout]
+    );
+
+    const completionPercent = useMemo(() => {
+        const contentSections = orderedSections.filter((section) => !section.isUtility);
+        const doneCount = contentSections.filter((section) => SECTION_REGISTRY[section.id]?.dataPresenceChecker?.(cvData)).length;
+        if (contentSections.length === 0) {
+            return 0;
+        }
+        return Math.round((doneCount / contentSections.length) * 100);
+    }, [orderedSections, cvData]);
+
+    return (
+        <form className="cv-form card-stack-form" aria-label="CV Form">
+            <div className="stack-dashboard">
+                <div>
+                    <h2 className="cv-form-title">My Resume</h2>
+                    <div className="stack-subtitle">Last updated today</div>
                 </div>
-            </Section>
+                <div className="stack-progress-ring">
+                    <div className="stack-progress-core">{completionPercent}%</div>
+                </div>
+            </div>
+
+            {orderedSections.map((section) => {
+                const isSimpleOpen = !section.isComplex && openSimpleSection === section.id;
+                return (
+                    <SectionCard
+                        key={section.id}
+                        section={section}
+                        isOpen={isSimpleOpen}
+                        onToggle={toggleSimpleSection}
+                        onOpenComplex={openComplexSection}
+                        canDrag={canDragSection(section.id)}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        isDragging={draggingSectionId === section.id}
+                        statusLabel={sectionStatus(section.id)}
+                        statusTone={sectionTone(section.id)}
+                    >
+                        {renderSectionBody(section.id)}
+                    </SectionCard>
+                );
+            })}
+
+            {activeComplexSection ? (
+                <SectionEditorOverlay
+                    title={SECTION_REGISTRY[activeComplexSection]?.title || "Section"}
+                    isMobile={isMobile}
+                    onClose={closeComplexSection}
+                >
+                    {renderSectionBody(activeComplexSection)}
+                </SectionEditorOverlay>
+            ) : null}
         </form>
     );
 };

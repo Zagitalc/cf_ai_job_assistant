@@ -31,6 +31,7 @@ describe("App", () => {
 
         window.localStorage.clear();
         window.matchMedia = createMatchMedia(false);
+        Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1200 });
     });
 
     afterEach(() => {
@@ -70,21 +71,31 @@ describe("App", () => {
         expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
     });
 
-    it("toggles mobile preview state", () => {
+    it("opens mobile preview modal from FAB", () => {
+        window.innerWidth = 800;
+
         act(() => {
             root.render(<App />);
         });
 
-        const previewToggle = container.querySelector('button[aria-label="Show CV preview"]');
-        expect(previewToggle).not.toBeNull();
-        expect(previewToggle.getAttribute("aria-pressed")).toBe("false");
+        const previewFab = container.querySelector('button[aria-label="Open CV preview"]');
+        expect(previewFab).not.toBeNull();
 
         act(() => {
-            Simulate.click(previewToggle);
+            Simulate.click(previewFab);
         });
 
-        const formToggle = container.querySelector('button[aria-label="Show CV form"]');
-        expect(formToggle).not.toBeNull();
-        expect(formToggle.getAttribute("aria-pressed")).toBe("true");
+        expect(container.textContent).toContain("Preview");
+    });
+
+    it("keeps desktop preview panel visible in split layout", () => {
+        window.innerWidth = 1280;
+
+        act(() => {
+            root.render(<App />);
+        });
+
+        expect(container.querySelector('[data-testid="preview-panel"]')).not.toBeNull();
+        expect(container.querySelector('button[aria-label="Open CV preview"]')).toBeNull();
     });
 });

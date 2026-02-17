@@ -141,4 +141,47 @@ describe("exportController helpers", () => {
         expect(doc.documentWrapper).toBeDefined();
         expect(doc.documentWrapper.document).toBeDefined();
     });
+
+    it("generates template A HTML with personal first and skills below summary", () => {
+        const cvData = {
+            name: "Jane Doe",
+            summary: "Summary block",
+            workExperience: ["<p>Work block</p>"],
+            skills: ["React"],
+            sectionLayout: {
+                left: ["personal", "skills", "certifications", "awards"],
+                right: ["summary", "work", "volunteer", "education", "projects"],
+                editorCardOrder: []
+            }
+        };
+
+        const html = generateHTML(cvData, "A");
+        const personalIndex = html.indexOf("Personal Info");
+        const summaryIndex = html.indexOf("Profile Summary");
+        const skillsIndex = html.indexOf("Skills");
+        const workIndex = html.indexOf("Work Experience");
+
+        expect(personalIndex).toBeGreaterThan(-1);
+        expect(summaryIndex).toBeGreaterThan(personalIndex);
+        expect(skillsIndex).toBeGreaterThan(summaryIndex);
+        expect(workIndex).toBeGreaterThan(skillsIndex);
+        expect(summaryIndex).toBeGreaterThan(-1);
+    });
+
+    it("normalizes stale sectionLayout and still renders populated missing sections", () => {
+        const cvData = {
+            name: "Jane Doe",
+            certifications: ["<p>AWS SA</p>"],
+            sectionLayout: {
+                left: ["personal", "skills"],
+                right: ["summary", "work"],
+                editorCardOrder: ["personal", "summary", "work", "skills"]
+            }
+        };
+
+        const html = generateHTML(cvData, "B");
+
+        expect(html).toContain("Certifications");
+        expect(html).toContain("<p>AWS SA</p>");
+    });
 });

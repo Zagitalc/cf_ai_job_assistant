@@ -11,7 +11,12 @@ describe("CV API", () => {
         const cvData = {
             name: "Alice",
             email: "alice@example.com",
-            skills: ["JavaScript", "React"]
+            skills: ["JavaScript", "React"],
+            sectionLayout: {
+                left: ["personal", "skills", "certifications", "awards"],
+                right: ["summary", "work", "volunteer", "education", "projects"],
+                editorCardOrder: ["personal", "summary", "work", "skills", "template-export", "save-load"]
+            }
         };
 
         const response = await request(app)
@@ -22,6 +27,7 @@ describe("CV API", () => {
         expect(response.body._id).toBeDefined();
         expect(response.body.name).toBe("Alice");
         expect(response.body.skills).toEqual(["JavaScript", "React"]);
+        expect(response.body.sectionLayout.left).toContain("personal");
     });
 
     it("POST /api/cv/save with userId upserts and updates existing CV", async () => {
@@ -61,7 +67,12 @@ describe("CV API", () => {
         await CV.create({
             userId: "user-abc",
             name: "Existing User",
-            email: "existing@example.com"
+            email: "existing@example.com",
+            sectionLayout: {
+                left: ["personal", "skills", "certifications", "awards"],
+                right: ["summary", "work", "volunteer", "education", "projects"],
+                editorCardOrder: ["personal", "summary", "work", "skills", "template-export", "save-load"]
+            }
         });
 
         const response = await request(app).get("/api/cv/user-abc");
@@ -69,6 +80,7 @@ describe("CV API", () => {
         expect(response.status).toBe(200);
         expect(response.body.userId).toBe("user-abc");
         expect(response.body.name).toBe("Existing User");
+        expect(response.body.sectionLayout.right).toContain("summary");
     });
 
     it("GET /api/cv/:userId returns 404 when CV does not exist", async () => {

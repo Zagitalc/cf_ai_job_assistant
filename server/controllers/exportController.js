@@ -14,6 +14,7 @@ const {
     TextRun,
     WidthType
 } = require("docx");
+const { getOrderedSectionsForTemplate, normalizeSectionLayout } = require("../utils/sectionLayout");
 
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
 const isRichTextEmpty = (value) => !value || value === "<p><br></p>" || value.trim() === "";
@@ -144,6 +145,96 @@ const renderEducationEntries = (education) => {
         .join("");
 };
 
+const renderSectionHtml = (sectionId, cvData = {}) => {
+    if (sectionId === "personal") {
+        return `
+            <section class="section-block">
+                <h3>Personal Info</h3>
+                <div class="entry-block preview-personal-block">
+                    <div><span class="preview-label">Name:</span> ${formatPlainText(cvData.name)}</div>
+                    <div><span class="preview-label">Email:</span> ${formatPlainText(cvData.email)}</div>
+                    <div><span class="preview-label">Phone:</span> ${formatPlainText(cvData.phone)}</div>
+                    <div><span class="preview-label">LinkedIn:</span> ${formatPlainText(cvData.linkedin)}</div>
+                </div>
+            </section>
+        `;
+    }
+
+    if (sectionId === "skills") {
+        return `
+            <section class="section-block">
+                <h3>Skills</h3>
+                ${renderSkillsList(cvData.skills)}
+            </section>
+        `;
+    }
+
+    if (sectionId === "certifications") {
+        return `
+            <section class="section-block">
+                <h3>Certifications</h3>
+                ${renderRichEntries(cvData.certifications)}
+            </section>
+        `;
+    }
+
+    if (sectionId === "awards") {
+        return `
+            <section class="section-block">
+                <h3>Awards</h3>
+                ${renderRichEntries(cvData.awards)}
+            </section>
+        `;
+    }
+
+    if (sectionId === "summary") {
+        return `
+            <section class="section-block">
+                <h3>Profile Summary</h3>
+                <div class="entry-block preview-text-block">${formatPlainText(cvData.summary)}</div>
+            </section>
+        `;
+    }
+
+    if (sectionId === "work") {
+        return `
+            <section class="section-block">
+                <h3>Work Experience</h3>
+                ${renderRichEntries(cvData.workExperience)}
+            </section>
+        `;
+    }
+
+    if (sectionId === "volunteer") {
+        return `
+            <section class="section-block">
+                <h3>Volunteer Experience</h3>
+                ${renderRichEntries(cvData.volunteerExperience)}
+            </section>
+        `;
+    }
+
+    if (sectionId === "education") {
+        return `
+            <section class="section-block">
+                <h3>Education</h3>
+                ${renderEducationEntries(cvData.education)}
+            </section>
+        `;
+    }
+
+    if (sectionId === "projects") {
+        return `
+            <section class="section-block">
+                <h3>Projects</h3>
+                ${renderRichEntries(cvData.projects)}
+            </section>
+        `;
+    }
+
+    return "";
+};
+
 const buildTemplateStyles = (template) => {
     const isTemplateB = template === "B";
 
@@ -211,6 +302,8 @@ const buildTemplateStyles = (template) => {
             }
             .preview-container.template-A .left-column { width: 35%; }
             .preview-container.template-A .right-column { width: 65%; }
+            .preview-container.template-A .left-column:empty { display: none; }
+            .preview-container.template-A .left-column:empty + .right-column { width: 100%; }
             .preview-container.template-A h3 {
                 margin: 0 0 8px;
                 font-size: 1.1rem;
@@ -270,21 +363,11 @@ const buildTemplateStyles = (template) => {
 
 const generateHTML = (cvData, template) => {
     const safeTemplate = template === "B" ? "B" : "A";
+    const sectionLayout = normalizeSectionLayout(cvData?.sectionLayout, cvData || {});
+    const ordered = getOrderedSectionsForTemplate(sectionLayout, safeTemplate, cvData || {});
 
-    const {
-        name,
-        email,
-        phone,
-        linkedin,
-        summary,
-        workExperience,
-        volunteerExperience,
-        education,
-        skills,
-        projects,
-        certifications,
-        awards
-    } = cvData || {};
+    const leftHtml = ordered.left.map((sectionId) => renderSectionHtml(sectionId, cvData || {})).join("");
+    const rightHtml = ordered.right.map((sectionId) => renderSectionHtml(sectionId, cvData || {})).join("");
 
     return `
         <html>
@@ -294,59 +377,8 @@ const generateHTML = (cvData, template) => {
             </head>
             <body>
                 <div class="preview-container template-${safeTemplate}">
-                    <div class="left-column">
-                        <section class="section-block">
-                            <h3>Personal Info</h3>
-                            <div class="entry-block preview-personal-block">
-                                <div><span class="preview-label">Name:</span> ${formatPlainText(name)}</div>
-                                <div><span class="preview-label">Email:</span> ${formatPlainText(email)}</div>
-                                <div><span class="preview-label">Phone:</span> ${formatPlainText(phone)}</div>
-                                <div><span class="preview-label">LinkedIn:</span> ${formatPlainText(linkedin)}</div>
-                            </div>
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Skills</h3>
-                            ${renderSkillsList(skills)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Certifications</h3>
-                            ${renderRichEntries(certifications)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Awards</h3>
-                            ${renderRichEntries(awards)}
-                        </section>
-                    </div>
-
-                    <div class="right-column">
-                        <section class="section-block">
-                            <h3>Profile Summary</h3>
-                            <div class="entry-block preview-text-block">${formatPlainText(summary)}</div>
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Work Experience</h3>
-                            ${renderRichEntries(workExperience)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Volunteer Experience</h3>
-                            ${renderRichEntries(volunteerExperience)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Education</h3>
-                            ${renderEducationEntries(education)}
-                        </section>
-
-                        <section class="section-block">
-                            <h3>Projects</h3>
-                            ${renderRichEntries(projects)}
-                        </section>
-                    </div>
+                    <div class="left-column">${leftHtml}</div>
+                    <div class="right-column">${rightHtml}</div>
                 </div>
             </body>
         </html>
@@ -710,43 +742,63 @@ const addWordEducation = (target, education, styleOptions = {}) => {
     });
 };
 
+const addWordSectionById = (target, sectionId, cvData, styleOptions = {}, personalOptions = {}) => {
+    if (sectionId === "personal") {
+        target.push(createWordHeading("Personal Info", styleOptions));
+        target.push(createWordKeyValue("Name", cvData.name || "N/A", personalOptions));
+        target.push(createWordKeyValue("Email", cvData.email || "N/A", personalOptions));
+        target.push(createWordKeyValue("Phone", cvData.phone || "N/A", personalOptions));
+        target.push(createWordKeyValue("LinkedIn", cvData.linkedin || "N/A", personalOptions));
+        return;
+    }
+
+    if (sectionId === "skills") {
+        addWordSkills(target, cvData.skills, styleOptions);
+        return;
+    }
+
+    if (sectionId === "certifications") {
+        addWordSectionFromHtmlArray(target, "Certifications", cvData.certifications, styleOptions);
+        return;
+    }
+
+    if (sectionId === "awards") {
+        addWordSectionFromHtmlArray(target, "Awards", cvData.awards, styleOptions);
+        return;
+    }
+
+    if (sectionId === "summary") {
+        addWordSectionFromString(target, "Profile Summary", cvData.summary, styleOptions);
+        return;
+    }
+
+    if (sectionId === "work") {
+        addWordSectionFromHtmlArray(target, "Work Experience", cvData.workExperience, styleOptions);
+        return;
+    }
+
+    if (sectionId === "volunteer") {
+        addWordSectionFromHtmlArray(target, "Volunteer Experience", cvData.volunteerExperience, styleOptions);
+        return;
+    }
+
+    if (sectionId === "education") {
+        addWordEducation(target, cvData.education, styleOptions);
+        return;
+    }
+
+    if (sectionId === "projects") {
+        addWordSectionFromHtmlArray(target, "Projects", cvData.projects, styleOptions);
+    }
+};
+
 const buildWordTemplateA = (cvData) => {
     const left = [];
     const right = [];
-
-    left.push(createWordHeading("Personal Info", { borderColor: "D1D5DB", headingColor: "111827" }));
-    left.push(createWordKeyValue("Name", cvData.name || "N/A"));
-    left.push(createWordKeyValue("Email", cvData.email || "N/A"));
-    left.push(createWordKeyValue("Phone", cvData.phone || "N/A"));
-    left.push(createWordKeyValue("LinkedIn", cvData.linkedin || "N/A"));
-
-    addWordSkills(left, cvData.skills, { borderColor: "D1D5DB", headingColor: "111827" });
-    addWordSectionFromHtmlArray(left, "Certifications", cvData.certifications, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordSectionFromHtmlArray(left, "Awards", cvData.awards, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-
-    addWordSectionFromString(right, "Profile Summary", cvData.summary, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordSectionFromHtmlArray(right, "Work Experience", cvData.workExperience, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordSectionFromHtmlArray(right, "Volunteer Experience", cvData.volunteerExperience, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
-    addWordEducation(right, cvData.education, { borderColor: "D1D5DB", headingColor: "111827" });
-    addWordSectionFromHtmlArray(right, "Projects", cvData.projects, {
-        borderColor: "D1D5DB",
-        headingColor: "111827"
-    });
+    const style = { borderColor: "D1D5DB", headingColor: "111827" };
+    const sectionLayout = normalizeSectionLayout(cvData?.sectionLayout, cvData || {});
+    const ordered = getOrderedSectionsForTemplate(sectionLayout, "A", cvData || {});
+    ordered.right.forEach((sectionId) => addWordSectionById(right, sectionId, cvData, style));
 
     return {
         left,
@@ -764,22 +816,13 @@ const buildWordTemplateB = (cvData) => {
 
     const leftHeadingStyle = { borderColor: "E2E8F0", headingColor: "E2E8F0" };
     const rightHeadingStyle = { borderColor: "1F3B63", headingColor: "1F3B63" };
+    const sectionLayout = normalizeSectionLayout(cvData?.sectionLayout, cvData || {});
+    const ordered = getOrderedSectionsForTemplate(sectionLayout, "B", cvData || {});
 
-    left.push(createWordHeading("Personal Info", leftHeadingStyle));
-    left.push(createWordKeyValue("Name", cvData.name || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-    left.push(createWordKeyValue("Email", cvData.email || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-    left.push(createWordKeyValue("Phone", cvData.phone || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-    left.push(createWordKeyValue("LinkedIn", cvData.linkedin || "N/A", { color: "F8FAFC", labelColor: "E2E8F0" }));
-
-    addWordSkills(left, cvData.skills, leftHeadingStyle);
-    addWordSectionFromHtmlArray(left, "Certifications", cvData.certifications, leftHeadingStyle);
-    addWordSectionFromHtmlArray(left, "Awards", cvData.awards, leftHeadingStyle);
-
-    addWordSectionFromString(right, "Profile Summary", cvData.summary, rightHeadingStyle);
-    addWordSectionFromHtmlArray(right, "Work Experience", cvData.workExperience, rightHeadingStyle);
-    addWordSectionFromHtmlArray(right, "Volunteer Experience", cvData.volunteerExperience, rightHeadingStyle);
-    addWordEducation(right, cvData.education, rightHeadingStyle);
-    addWordSectionFromHtmlArray(right, "Projects", cvData.projects, rightHeadingStyle);
+    ordered.left.forEach((sectionId) =>
+        addWordSectionById(left, sectionId, cvData, leftHeadingStyle, { color: "F8FAFC", labelColor: "E2E8F0" })
+    );
+    ordered.right.forEach((sectionId) => addWordSectionById(right, sectionId, cvData, rightHeadingStyle));
 
     return {
         left,
