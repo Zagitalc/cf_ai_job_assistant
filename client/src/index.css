@@ -4,37 +4,41 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 
 :root {
-    --bg-primary: #eef1f7;
+    --bg-primary: #f4f5f7;
     --bg-panel: #ffffff;
-    --bg-muted: #f5f7fb;
-    --text-primary: #121827;
-    --text-secondary: #6d7789;
-    --border-color: #e2e8f0;
-    --input-bg: #f8fafd;
-    --btn-primary: #3b82f6;
-    --btn-primary-hover: #2563eb;
+    --bg-muted: #f0f1f4;
+    --text-primary: #0f1217;
+    --text-secondary: #4f596b;
+    --border-color: #d6dbe3;
+    --input-bg: #f0f2f6;
+    --btn-primary: #04092c;
+    --btn-primary-hover: #0c1644;
     --btn-text: #ffffff;
     --danger: #b91c1c;
     --danger-soft: #fef2f2;
     --success: #10b981;
     --warning: #f59e0b;
+    --progress-track: #d8dde6;
+    --progress-fill: #04092c;
 }
 
 [data-theme="dark"] {
-    --bg-primary: #111a27;
-    --bg-panel: #162030;
-    --bg-muted: #1d293b;
-    --text-primary: #f8fafc;
-    --text-secondary: #9aa7bc;
-    --border-color: #253348;
-    --input-bg: #1e2a3d;
-    --btn-primary: #3b82f6;
-    --btn-primary-hover: #2563eb;
-    --btn-text: #ffffff;
+    --bg-primary: #0b1422;
+    --bg-panel: #05080f;
+    --bg-muted: #101b2c;
+    --text-primary: #f5f7fb;
+    --text-secondary: #9aa8bc;
+    --border-color: #253652;
+    --input-bg: #0b1422;
+    --btn-primary: #f5f7fb;
+    --btn-primary-hover: #d9e0ea;
+    --btn-text: #080d18;
     --danger: #fca5a5;
     --danger-soft: rgba(248, 113, 113, 0.16);
     --success: #34d399;
     --warning: #fbbf24;
+    --progress-track: #253652;
+    --progress-fill: #f5f7fb;
 }
 
 * {
@@ -73,7 +77,7 @@ body {
     pointer-events: none;
     background-image: radial-gradient(color-mix(in srgb, var(--border-color) 58%, transparent) 1px, transparent 1px);
     background-size: 20px 20px;
-    opacity: 0.24;
+    opacity: 0.12;
     z-index: 0;
 }
 
@@ -113,8 +117,8 @@ body {
     border: 1px solid var(--border-color);
     background: var(--bg-muted);
     color: var(--text-primary);
-    border-radius: 12px;
-    padding: 10px 13px;
+    border-radius: 999px;
+    padding: 10px 16px;
     font-size: 0.86rem;
     font-weight: 700;
     cursor: pointer;
@@ -161,7 +165,7 @@ body {
 .app-form-panel {
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
-    border-radius: 18px;
+    border-radius: 20px;
     box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
     padding: 22px;
     position: relative;
@@ -292,7 +296,7 @@ body {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 8px;
-    padding: 4px 4px 8px;
+    padding: 6px 4px 10px;
 }
 
 .stack-subtitle {
@@ -301,28 +305,50 @@ body {
     color: var(--text-secondary);
 }
 
-.stack-progress-ring {
-    width: 44px;
-    height: 44px;
-    border-radius: 999px;
-    background: conic-gradient(var(--btn-primary) 0deg, var(--btn-primary) 306deg, color-mix(in srgb, var(--border-color) 70%, transparent) 306deg);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px;
+.stack-progress-group {
+    min-width: 210px;
+    max-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
 }
 
-.stack-progress-core {
+.stack-progress-bar {
     width: 100%;
-    height: 100%;
+    height: 12px;
     border-radius: 999px;
-    background: var(--bg-panel);
-    font-size: 0.66rem;
-    font-weight: 800;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-primary);
+    background: var(--progress-track);
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    overflow: hidden;
+}
+
+.stack-progress-fill {
+    height: 100%;
+    background: var(--progress-fill);
+    border-radius: 999px;
+    position: relative;
+    min-width: 0;
+    transition: width 0.25s ease;
+}
+
+.stack-progress-thumb {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    transform: translate(50%, -50%);
+    background: var(--progress-fill);
+    border: 2px solid var(--bg-panel);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
+}
+
+.stack-progress-label {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-secondary);
 }
 
 .cv-section-card {
@@ -433,7 +459,7 @@ body {
     border: 1px solid var(--border-color);
     background: var(--bg-panel);
     color: var(--text-primary);
-    border-radius: 10px;
+    border-radius: 999px;
     padding: 6px 11px;
     font-size: 0.75rem;
     font-weight: 700;
@@ -531,7 +557,7 @@ body {
 .form-select {
     width: 100%;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: 14px;
     background: var(--input-bg);
     color: var(--text-primary);
     font-size: 0.93rem;
@@ -540,6 +566,10 @@ body {
 
 .form-textarea {
     resize: vertical;
+}
+
+.form-select {
+    border-radius: 999px;
 }
 
 .form-input::placeholder,
@@ -669,7 +699,7 @@ body {
     border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
     color: var(--danger);
     background: transparent;
-    border-radius: 10px;
+    border-radius: 999px;
     padding: 6px 8px;
     font-size: 0.82rem;
     font-weight: 600;
@@ -930,6 +960,13 @@ body {
         align-items: flex-start;
     }
 
+    .stack-progress-group {
+        width: 100%;
+        max-width: none;
+        align-items: flex-start;
+        margin-top: 8px;
+    }
+
     .mobile-toggle-btn {
         display: inline-flex;
     }
@@ -977,10 +1014,13 @@ body {
         background: var(--btn-primary);
         color: var(--btn-text);
         border-radius: 999px;
-        width: 58px;
-        height: 58px;
+        min-width: 120px;
+        height: 50px;
+        padding: 0 20px;
         justify-content: center;
-        font-size: 0.88rem;
+        align-items: center;
+        white-space: nowrap;
+        font-size: 1rem;
         font-weight: 700;
         box-shadow: 0 14px 26px rgba(37, 99, 235, 0.34);
         display: inline-flex;
