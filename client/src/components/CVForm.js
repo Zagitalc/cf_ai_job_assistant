@@ -851,8 +851,22 @@ const CVForm = ({
                     <h2 className="cv-form-title">My Resume</h2>
                     <div className="stack-subtitle">{completion.isCoreReady ? "Core ready" : "Needs core info"}</div>
                 </div>
-                <div className="stack-progress-ring">
-                    <div className="stack-progress-core">{completion.completionPercent}%</div>
+                <div className="stack-progress-group">
+                    <div
+                        className="stack-progress-bar"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={completion.completionPercent}
+                    >
+                        <div
+                            className="stack-progress-fill"
+                            style={{ width: `${completion.completionPercent}%` }}
+                        >
+                            <span className="stack-progress-thumb" />
+                        </div>
+                    </div>
+                    <div className="stack-progress-label">{completion.completionPercent}% Complete</div>
                 </div>
             </div>
 
