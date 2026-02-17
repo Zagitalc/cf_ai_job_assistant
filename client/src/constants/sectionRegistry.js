@@ -8,6 +8,13 @@ const hasRichEntries = (entries = []) =>
         return text.length > 0;
     });
 
+const hasRichValue = (value = "") =>
+    String(value || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim().length > 0;
+
 const hasEducationEntries = (entries = []) =>
     (entries || []).some((entry = {}) => {
         const base = [entry.degree, entry.school, entry.location, entry.startDate, entry.endDate]
@@ -30,6 +37,11 @@ export const SECTION_REGISTRY = {
         pinned: true,
         isComplex: false,
         isUtility: false,
+        requiredByDefault: true,
+        optional: false,
+        hideWhenEmptyInOutput: false,
+        completionGroup: "core",
+        outputRenderable: true,
         renderKey: "personal",
         dataPresenceChecker: (cvData = {}) =>
             [cvData.name, cvData.email, cvData.phone, cvData.linkedin].some((value) => String(value || "").trim())
@@ -41,6 +53,11 @@ export const SECTION_REGISTRY = {
         pinned: true,
         isComplex: false,
         isUtility: false,
+        requiredByDefault: false,
+        optional: true,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "optional",
+        outputRenderable: true,
         renderKey: "summary",
         dataPresenceChecker: (cvData = {}) => String(cvData.summary || "").trim().length > 0
     },
@@ -51,6 +68,11 @@ export const SECTION_REGISTRY = {
         pinned: false,
         isComplex: true,
         isUtility: false,
+        requiredByDefault: true,
+        optional: false,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "core",
+        outputRenderable: true,
         renderKey: "work",
         dataPresenceChecker: (cvData = {}) => hasRichEntries(cvData.workExperience)
     },
@@ -61,6 +83,11 @@ export const SECTION_REGISTRY = {
         pinned: false,
         isComplex: true,
         isUtility: false,
+        requiredByDefault: false,
+        optional: true,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "optional",
+        outputRenderable: true,
         renderKey: "volunteer",
         dataPresenceChecker: (cvData = {}) => hasRichEntries(cvData.volunteerExperience)
     },
@@ -71,6 +98,11 @@ export const SECTION_REGISTRY = {
         pinned: false,
         isComplex: true,
         isUtility: false,
+        requiredByDefault: true,
+        optional: false,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "core",
+        outputRenderable: true,
         renderKey: "education",
         dataPresenceChecker: (cvData = {}) => hasEducationEntries(cvData.education)
     },
@@ -81,6 +113,11 @@ export const SECTION_REGISTRY = {
         pinned: false,
         isComplex: true,
         isUtility: false,
+        requiredByDefault: false,
+        optional: true,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "core",
+        outputRenderable: true,
         renderKey: "projects",
         dataPresenceChecker: (cvData = {}) => hasRichEntries(cvData.projects)
     },
@@ -91,6 +128,11 @@ export const SECTION_REGISTRY = {
         pinned: false,
         isComplex: false,
         isUtility: false,
+        requiredByDefault: true,
+        optional: false,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "core",
+        outputRenderable: true,
         renderKey: "skills",
         dataPresenceChecker: (cvData = {}) => (cvData.skills || []).some((skill) => String(skill || "").trim())
     },
@@ -101,6 +143,11 @@ export const SECTION_REGISTRY = {
         pinned: false,
         isComplex: false,
         isUtility: false,
+        requiredByDefault: false,
+        optional: true,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "optional",
+        outputRenderable: true,
         renderKey: "certifications",
         dataPresenceChecker: (cvData = {}) => hasRichEntries(cvData.certifications)
     },
@@ -111,16 +158,43 @@ export const SECTION_REGISTRY = {
         pinned: false,
         isComplex: false,
         isUtility: false,
+        requiredByDefault: false,
+        optional: true,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "optional",
+        outputRenderable: true,
         renderKey: "awards",
         dataPresenceChecker: (cvData = {}) => hasRichEntries(cvData.awards)
+    },
+    "additional-info": {
+        id: "additional-info",
+        title: "Additional Info",
+        column: "right",
+        pinned: false,
+        locked: false,
+        isComplex: false,
+        isUtility: false,
+        requiredByDefault: false,
+        optional: true,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "optional",
+        outputRenderable: true,
+        renderKey: "additional-info",
+        dataPresenceChecker: (cvData = {}) => hasRichValue(cvData.additionalInfo)
     },
     "template-export": {
         id: "template-export",
         title: "Template & Export",
         column: "utility",
         pinned: false,
+        locked: true,
         isComplex: false,
         isUtility: true,
+        requiredByDefault: false,
+        optional: false,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "utility",
+        outputRenderable: false,
         renderKey: "template-export",
         dataPresenceChecker: () => true
     },
@@ -129,8 +203,14 @@ export const SECTION_REGISTRY = {
         title: "Save / Load",
         column: "utility",
         pinned: false,
+        locked: true,
         isComplex: false,
         isUtility: true,
+        requiredByDefault: false,
+        optional: false,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "utility",
+        outputRenderable: false,
         renderKey: "save-load",
         dataPresenceChecker: () => true
     }

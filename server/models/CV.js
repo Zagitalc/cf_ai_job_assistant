@@ -22,6 +22,7 @@ const CVSchema = new mongoose.Schema({
     projects: [String], // HTML strings
     certifications: [String], // HTML strings
     awards: [String], // HTML strings
+    additionalInfo: String, // HTML string
     interests: String,
     sectionLayout: {
         left: [String],

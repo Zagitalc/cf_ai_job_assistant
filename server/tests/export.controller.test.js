@@ -145,6 +145,7 @@ describe("exportController helpers", () => {
     it("generates template A HTML with personal first and skills below summary", () => {
         const cvData = {
             name: "Jane Doe",
+            email: "jane@example.com",
             summary: "Summary block",
             workExperience: ["<p>Work block</p>"],
             skills: ["React"],
@@ -166,6 +167,8 @@ describe("exportController helpers", () => {
         expect(skillsIndex).toBeGreaterThan(summaryIndex);
         expect(workIndex).toBeGreaterThan(skillsIndex);
         expect(summaryIndex).toBeGreaterThan(-1);
+        expect(html).not.toContain("<h3>Certifications</h3>");
+        expect(html).not.toContain("<h3>Awards</h3>");
     });
 
     it("normalizes stale sectionLayout and still renders populated missing sections", () => {
@@ -183,5 +186,50 @@ describe("exportController helpers", () => {
 
         expect(html).toContain("Certifications");
         expect(html).toContain("<p>AWS SA</p>");
+    });
+
+    it("omits empty optional sections and N/A placeholders in output", () => {
+        const cvData = {
+            name: "Jane Doe",
+            email: "jane@example.com",
+            summary: "",
+            workExperience: ["<p>Work block</p>"],
+            skills: ["React"],
+            education: [{ school: "Durham University", degree: "BSc Computer Science" }],
+            certifications: [],
+            awards: [],
+            volunteerExperience: [],
+            projects: []
+        };
+
+        const html = generateHTML(cvData, "B");
+
+        expect(html).not.toContain("<h3>Certifications</h3>");
+        expect(html).not.toContain("<h3>Awards</h3>");
+        expect(html).not.toContain("<h3>Profile Summary</h3>");
+        expect(html).not.toContain("N/A");
+    });
+
+    it("renders additional info only when populated", () => {
+        const populated = generateHTML(
+            {
+                name: "Jane Doe",
+                email: "jane@example.com",
+                additionalInfo: "<p>Security clearance eligible.</p>"
+            },
+            "A"
+        );
+        const empty = generateHTML(
+            {
+                name: "Jane Doe",
+                email: "jane@example.com",
+                additionalInfo: ""
+            },
+            "A"
+        );
+
+        expect(populated).toContain("<h3>Additional Info</h3>");
+        expect(populated).toContain("Security clearance eligible.");
+        expect(empty).not.toContain("<h3>Additional Info</h3>");
     });
 });

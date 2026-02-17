@@ -2,8 +2,9 @@ import React, { useMemo, useState } from "react";
 import ReactQuill from "react-quill";
 import SectionEditorOverlay from "./SectionEditorOverlay";
 import SectionCard from "./forms/SectionCard";
+import ExportFilenamePicker from "./ExportFilenamePicker";
 import { SECTION_REGISTRY } from "../constants/sectionRegistry";
-import { canDragSection, reorderEditorCards } from "../utils/sectionLayout";
+import { canDragSection, getCompletionStatus, reorderEditorCards } from "../utils/sectionLayout";
 import "react-quill/dist/quill.snow.css";
 
 const FALLBACK_TEMPLATE_OPTIONS = [
@@ -75,6 +76,9 @@ const CVForm = ({
     isExporting,
     exportingFormat,
     exportError,
+    exportFileBaseName,
+    onExportFileBaseNameChange,
+    exportFileSuggestions,
     onSave,
     onLoad,
     layoutMetrics,
@@ -129,6 +133,7 @@ const CVForm = ({
     const newCertWordCount = countRichTextWords(newCert);
     const newAwardWordCount = countRichTextWords(newAward);
     const newEducationInfoWordCount = countRichTextWords(newEdu.additionalInfo || "");
+    const additionalInfoWordCount = countRichTextWords(cvData.additionalInfo || "");
 
     const workWarnings = getLongEntryWarnings(cvData.workExperience, "Work entry");
     const volunteerWarnings = getLongEntryWarnings(cvData.volunteerExperience, "Volunteer entry");
@@ -329,6 +334,10 @@ const CVForm = ({
             return `${(cvData.awards || []).length} entries`;
         }
 
+        if (sectionId === "additional-info") {
+            return `${additionalInfoWordCount} words`;
+        }
+
         if (sectionId === "template-export") {
             return "Actions";
         }
@@ -347,6 +356,10 @@ const CVForm = ({
         }
 
         if (sectionId === "summary" && summaryWordCount > 160) {
+            return "warning";
+        }
+
+        if (sectionId === "additional-info" && additionalInfoWordCount > 160) {
             return "warning";
         }
 
@@ -425,7 +438,7 @@ const CVForm = ({
                                 name="name"
                                 value={cvData.name || ""}
                                 onChange={handleChange}
-                                placeholder="John Doe"
+                                placeholder="Full name"
                                 className="form-input"
                             />
                         </div>
@@ -436,7 +449,7 @@ const CVForm = ({
                                 name="email"
                                 value={cvData.email || ""}
                                 onChange={handleChange}
-                                placeholder="john@example.com"
+                                placeholder="Email address"
                                 className="form-input"
                             />
                         </div>
@@ -447,7 +460,7 @@ const CVForm = ({
                                 name="phone"
                                 value={cvData.phone || ""}
                                 onChange={handleChange}
-                                placeholder="(123) 456-7890"
+                                placeholder="Phone number"
                                 className="form-input"
                             />
                         </div>
@@ -458,7 +471,7 @@ const CVForm = ({
                                 name="linkedin"
                                 value={cvData.linkedin || ""}
                                 onChange={handleChange}
-                                placeholder="https://linkedin.com/in/yourprofile"
+                                placeholder="LinkedIn URL"
                                 className="form-input"
                             />
                         </div>
@@ -749,6 +762,29 @@ const CVForm = ({
             );
         }
 
+        if (sectionId === "additional-info") {
+            return (
+                <>
+                    {getSectionOverflowWarning("additional-info") ? (
+                        <div className="form-warning">{getSectionOverflowWarning("additional-info")}</div>
+                    ) : null}
+                    <label className="form-label">Additional Info</label>
+                    <ReactQuill
+                        theme="snow"
+                        value={cvData.additionalInfo || ""}
+                        onChange={(content) => setCvData((prev) => ({ ...prev, additionalInfo: content }))}
+                        placeholder="Add extra details that do not fit other sections..."
+                    />
+                    <div className="form-meta">Words: {additionalInfoWordCount}</div>
+                    {additionalInfoWordCount > 160 ? (
+                        <div className="form-warning">
+                            This section is {additionalInfoWordCount} words. Keep it concise and role-relevant.
+                        </div>
+                    ) : null}
+                </>
+            );
+        }
+
         if (sectionId === "template-export") {
             return (
                 <>
@@ -758,12 +794,18 @@ const CVForm = ({
                             <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
+                    <ExportFilenamePicker
+                        inputId="export-filename"
+                        value={exportFileBaseName}
+                        onChange={onExportFileBaseNameChange}
+                        suggestions={exportFileSuggestions}
+                    />
 
                     <div className="button-row">
-                        <button type="button" onClick={() => onExport("pdf")} disabled={isExporting} className="primary-btn">
+                        <button type="button" onClick={() => onExport("pdf", exportFileBaseName)} disabled={isExporting} className="primary-btn">
                             {isExporting && exportingFormat === "pdf" ? "Generating PDF..." : "Export PDF"}
                         </button>
-                        <button type="button" onClick={() => onExport("word")} disabled={isExporting} className="primary-btn">
+                        <button type="button" onClick={() => onExport("word", exportFileBaseName)} disabled={isExporting} className="primary-btn">
                             {isExporting && exportingFormat === "word" ? "Generating Word..." : "Export Word"}
                         </button>
                     </div>
@@ -800,24 +842,17 @@ const CVForm = ({
         [sectionLayout]
     );
 
-    const completionPercent = useMemo(() => {
-        const contentSections = orderedSections.filter((section) => !section.isUtility);
-        const doneCount = contentSections.filter((section) => SECTION_REGISTRY[section.id]?.dataPresenceChecker?.(cvData)).length;
-        if (contentSections.length === 0) {
-            return 0;
-        }
-        return Math.round((doneCount / contentSections.length) * 100);
-    }, [orderedSections, cvData]);
+    const completion = useMemo(() => getCompletionStatus(cvData), [cvData]);
 
     return (
         <form className="cv-form card-stack-form" aria-label="CV Form">
             <div className="stack-dashboard">
                 <div>
                     <h2 className="cv-form-title">My Resume</h2>
-                    <div className="stack-subtitle">Last updated today</div>
+                    <div className="stack-subtitle">{completion.isCoreReady ? "Core ready" : "Needs core info"}</div>
                 </div>
                 <div className="stack-progress-ring">
-                    <div className="stack-progress-core">{completionPercent}%</div>
+                    <div className="stack-progress-core">{completion.completionPercent}%</div>
                 </div>
             </div>
 
@@ -837,6 +872,7 @@ const CVForm = ({
                         isDragging={draggingSectionId === section.id}
                         statusLabel={sectionStatus(section.id)}
                         statusTone={sectionTone(section.id)}
+                        sectionCategoryLabel={section.completionGroup === "core" ? "Core" : section.optional ? "Optional" : ""}
                     >
                         {renderSectionBody(section.id)}
                     </SectionCard>

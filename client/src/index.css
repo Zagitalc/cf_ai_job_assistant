@@ -396,6 +396,18 @@ body {
     color: color-mix(in srgb, var(--text-primary) 88%, transparent);
 }
 
+.card-type-chip {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 2px 7px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--bg-muted) 72%, var(--bg-panel));
+}
+
 .card-status-dot {
     width: 8px;
     height: 8px;
@@ -539,6 +551,35 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.export-filename-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filename-suggestion-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filename-suggestion-chip {
+    border: 1px solid var(--border-color);
+    background: var(--bg-muted);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 0.73rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.filename-suggestion-chip.selected {
+    border-color: var(--btn-primary);
+    color: var(--btn-primary);
+    background: color-mix(in srgb, var(--btn-primary) 12%, var(--bg-panel));
 }
 
 .primary-btn,
@@ -853,6 +894,15 @@ body {
     padding: 16px 10px 10px;
 }
 
+.preview-modal-filename {
+    border-bottom: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel) 86%, var(--bg-muted));
+    padding: 10px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 @keyframes spin {
     from {
         transform: rotate(0deg);
@@ -939,6 +989,10 @@ body {
 
     .preview-fab:hover {
         background: var(--btn-primary-hover);
+    }
+
+    .card-stack-form {
+        padding-bottom: 96px;
     }
 
     .preview-modal-header {

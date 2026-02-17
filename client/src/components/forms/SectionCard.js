@@ -12,6 +12,7 @@ const SectionCard = ({
     isDragging,
     statusLabel,
     statusTone,
+    sectionCategoryLabel,
     children
 }) => (
     <section
@@ -29,6 +30,7 @@ const SectionCard = ({
                 </span>
                 <span className="card-stack-title">{section.title}</span>
                 {section.pinned ? <span className="card-pin" title="Pinned">📌</span> : null}
+                {sectionCategoryLabel ? <span className="card-type-chip">{sectionCategoryLabel}</span> : null}
             </div>
             <div className="card-stack-actions">
                 {statusLabel ? <span className="card-status-chip">{statusLabel}</span> : null}

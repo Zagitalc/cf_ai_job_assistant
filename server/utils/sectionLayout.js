@@ -1,15 +1,16 @@
 const SECTION_META = {
-    personal: { column: "left", pinned: true, dataPresenceChecker: (cvData = {}) => [cvData.name, cvData.email, cvData.phone, cvData.linkedin].some((value) => String(value || "").trim()) },
-    summary: { column: "right", pinned: true, dataPresenceChecker: (cvData = {}) => String(cvData.summary || "").trim().length > 0 },
-    work: { column: "right", pinned: false, dataPresenceChecker: (cvData = {}) => (cvData.workExperience || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
-    volunteer: { column: "right", pinned: false, dataPresenceChecker: (cvData = {}) => (cvData.volunteerExperience || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
-    education: { column: "right", pinned: false, dataPresenceChecker: (cvData = {}) => (cvData.education || []).some((entry = {}) => [entry.degree, entry.school, entry.location, entry.startDate, entry.endDate, entry.additionalInfo].some((value) => String(value || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim())) },
-    projects: { column: "right", pinned: false, dataPresenceChecker: (cvData = {}) => (cvData.projects || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
-    skills: { column: "left", pinned: false, dataPresenceChecker: (cvData = {}) => (cvData.skills || []).some((skill) => String(skill || "").trim()) },
-    certifications: { column: "left", pinned: false, dataPresenceChecker: (cvData = {}) => (cvData.certifications || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
-    awards: { column: "left", pinned: false, dataPresenceChecker: (cvData = {}) => (cvData.awards || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
-    "template-export": { column: "utility", pinned: false, isUtility: true, dataPresenceChecker: () => true },
-    "save-load": { column: "utility", pinned: false, isUtility: true, dataPresenceChecker: () => true }
+    personal: { column: "left", pinned: true, outputRenderable: true, hideWhenEmptyInOutput: false, dataPresenceChecker: (cvData = {}) => [cvData.name, cvData.email, cvData.phone, cvData.linkedin].some((value) => String(value || "").trim()) },
+    summary: { column: "right", pinned: true, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => String(cvData.summary || "").trim().length > 0 },
+    work: { column: "right", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.workExperience || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
+    volunteer: { column: "right", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.volunteerExperience || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
+    education: { column: "right", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.education || []).some((entry = {}) => [entry.degree, entry.school, entry.location, entry.startDate, entry.endDate, entry.additionalInfo].some((value) => String(value || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim())) },
+    projects: { column: "right", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.projects || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
+    skills: { column: "left", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.skills || []).some((skill) => String(skill || "").trim()) },
+    certifications: { column: "left", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.certifications || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
+    awards: { column: "left", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.awards || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
+    "additional-info": { column: "right", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => String(cvData.additionalInfo || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().length > 0 },
+    "template-export": { column: "utility", pinned: false, locked: true, isUtility: true, outputRenderable: false, hideWhenEmptyInOutput: true, dataPresenceChecker: () => true },
+    "save-load": { column: "utility", pinned: false, locked: true, isUtility: true, outputRenderable: false, hideWhenEmptyInOutput: true, dataPresenceChecker: () => true }
 };
 
 const CONTENT_SECTION_IDS = Object.keys(SECTION_META).filter((id) => !SECTION_META[id].isUtility);
@@ -26,6 +27,7 @@ const DEFAULT_EDITOR_CARD_ORDER = [
     "skills",
     "certifications",
     "awards",
+    "additional-info",
     "template-export",
     "save-load"
 ];
@@ -139,8 +141,10 @@ const normalizeSectionLayout = (layoutInput = {}, cvData = {}) => {
 
     editorCardOrder = applyColumnOrderToEditor(editorCardOrder, left, right);
 
-    const utilities = editorCardOrder.filter((id) => UTILITY_SECTION_IDS.includes(id));
-    editorCardOrder = [...editorCardOrder, ...UTILITY_SECTION_IDS.filter((id) => !utilities.includes(id))];
+    editorCardOrder = [
+        ...editorCardOrder.filter((id) => !UTILITY_SECTION_IDS.includes(id)),
+        ...UTILITY_SECTION_IDS
+    ];
 
     return {
         left,
@@ -161,6 +165,7 @@ const getOrderedSectionsForTemplate = (layoutInput, template = "A", cvData = {})
             "volunteer",
             "education",
             "projects",
+            "additional-info",
             "certifications",
             "awards"
         ];
@@ -183,6 +188,55 @@ const getOrderedSectionsForTemplate = (layoutInput, template = "A", cvData = {})
     };
 };
 
+const shouldRenderInOutput = (sectionId, cvData = {}, registryMeta = SECTION_META) => {
+    const section = registryMeta[sectionId];
+    if (!section || section.outputRenderable === false) {
+        return false;
+    }
+
+    if (section.hideWhenEmptyInOutput === false) {
+        return true;
+    }
+
+    return Boolean(section.dataPresenceChecker?.(cvData));
+};
+
+const getOutputSectionsForTemplate = (layoutInput, template = "A", cvData = {}, registryMeta = SECTION_META) => {
+    const ordered = getOrderedSectionsForTemplate(layoutInput, template, cvData);
+    return {
+        ...ordered,
+        left: ordered.left.filter((sectionId) => shouldRenderInOutput(sectionId, cvData, registryMeta)),
+        right: ordered.right.filter((sectionId) => shouldRenderInOutput(sectionId, cvData, registryMeta)),
+        linear: ordered.linear.filter((sectionId) => shouldRenderInOutput(sectionId, cvData, registryMeta))
+    };
+};
+
+const getCompletionStatus = (cvData = {}) => {
+    const hasName = String(cvData.name || "").trim().length > 0;
+    const hasEmail = String(cvData.email || "").trim().length > 0;
+    const hasPhone = String(cvData.phone || "").trim().length > 0;
+    const hasSkills = Boolean(SECTION_META.skills?.dataPresenceChecker?.(cvData));
+    const hasEducation = Boolean(SECTION_META.education?.dataPresenceChecker?.(cvData));
+    const hasWork = Boolean(SECTION_META.work?.dataPresenceChecker?.(cvData));
+    const hasProjects = Boolean(SECTION_META.projects?.dataPresenceChecker?.(cvData));
+
+    const coreChecks = {
+        personal: hasName && (hasEmail || hasPhone),
+        skills: hasSkills,
+        education: hasEducation,
+        experience: hasWork || hasProjects
+    };
+
+    const passedCount = Object.values(coreChecks).filter(Boolean).length;
+    const completionPercent = Math.round((passedCount / Object.keys(coreChecks).length) * 100);
+
+    return {
+        coreChecks,
+        isCoreReady: passedCount === Object.keys(coreChecks).length,
+        completionPercent
+    };
+};
+
 module.exports = {
     CONTENT_SECTION_IDS,
     LEFT_CONTENT_SECTION_IDS,
@@ -190,5 +244,8 @@ module.exports = {
     SECTION_META,
     getDefaultSectionLayout,
     normalizeSectionLayout,
-    getOrderedSectionsForTemplate
+    getOrderedSectionsForTemplate,
+    shouldRenderInOutput,
+    getOutputSectionsForTemplate,
+    getCompletionStatus
 };

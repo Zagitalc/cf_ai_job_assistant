@@ -4,6 +4,7 @@ import CVPreview from "./components/CVPreview";
 import PreviewModal from "./components/PreviewModal";
 import { TEMPLATE_OPTIONS } from "./constants/templates";
 import { getDefaultSectionLayout, normalizeSectionLayout } from "./utils/sectionLayout";
+import { buildFilenameSuggestions, resolveExportFilename, sanitizeFilenameBase } from "./utils/exportFilename";
 import "./index.css";
 import "react-quill/dist/quill.snow.css";
 
@@ -39,6 +40,7 @@ const getInitialCvData = () => ({
     projects: [],
     certifications: [],
     awards: [],
+    additionalInfo: "",
     interests: "",
     sectionLayout: getDefaultSectionLayout()
 });
@@ -54,6 +56,7 @@ function App() {
     const [theme, setTheme] = useState(getInitialTheme);
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [isMobile, setIsMobile] = useState(isMobileViewport);
+    const [exportFileBaseName, setExportFileBaseName] = useState("");
     const [layoutMetrics, setLayoutMetrics] = useState({
         totalPages: 1,
         sectionHeights: {},
@@ -83,6 +86,16 @@ function App() {
         () => normalizeSectionLayout(cvData.sectionLayout, cvData),
         [cvData.sectionLayout, cvData]
     );
+    const exportFileSuggestions = useMemo(
+        () => buildFilenameSuggestions(cvData, template),
+        [cvData, template]
+    );
+
+    useEffect(() => {
+        if (!exportFileBaseName.trim()) {
+            setExportFileBaseName(exportFileSuggestions[0] || "CV");
+        }
+    }, [exportFileBaseName, exportFileSuggestions]);
 
     const updateSectionLayout = useCallback(
         (nextLayout) => {
@@ -94,7 +107,7 @@ function App() {
         [setCvData]
     );
 
-    const handleExport = async (format) => {
+    const handleExport = async (format, requestedBaseName = "") => {
         setIsExporting(true);
         setExportingFormat(format);
         setExportError(null);
@@ -123,7 +136,10 @@ function App() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = `OnClickCV.${format === "pdf" ? "pdf" : "docx"}`;
+            const chosenBase = sanitizeFilenameBase(
+                requestedBaseName || exportFileBaseName || exportFileSuggestions[0] || "CV"
+            );
+            link.download = resolveExportFilename(chosenBase, format);
             link.click();
             window.URL.revokeObjectURL(url);
         } catch (error) {
@@ -216,6 +232,9 @@ function App() {
                             isExporting={isExporting}
                             exportingFormat={exportingFormat}
                             exportError={exportError}
+                            exportFileBaseName={exportFileBaseName}
+                            onExportFileBaseNameChange={setExportFileBaseName}
+                            exportFileSuggestions={exportFileSuggestions}
                             onSave={handleSaveCV}
                             onLoad={handleLoadCV}
                             layoutMetrics={layoutMetrics}
@@ -253,6 +272,9 @@ function App() {
                 onExport={handleExport}
                 isExporting={isExporting}
                 exportingFormat={exportingFormat}
+                exportFileBaseName={exportFileBaseName}
+                onExportFileBaseNameChange={setExportFileBaseName}
+                exportFileSuggestions={exportFileSuggestions}
             >
                 <CVPreview
                     cvData={cvData}

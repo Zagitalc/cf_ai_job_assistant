@@ -1,6 +1,17 @@
 import React from "react";
+import ExportFilenamePicker from "./ExportFilenamePicker";
 
-const PreviewModal = ({ isOpen, onClose, onExport, isExporting, exportingFormat, children }) => {
+const PreviewModal = ({
+    isOpen,
+    onClose,
+    onExport,
+    isExporting,
+    exportingFormat,
+    exportFileBaseName,
+    onExportFileBaseNameChange,
+    exportFileSuggestions,
+    children
+}) => {
     if (!isOpen) {
         return null;
     }
@@ -16,7 +27,7 @@ const PreviewModal = ({ isOpen, onClose, onExport, isExporting, exportingFormat,
                     <div className="preview-modal-actions">
                         <button
                             type="button"
-                            onClick={() => onExport("pdf")}
+                            onClick={() => onExport("pdf", exportFileBaseName)}
                             disabled={isExporting}
                             className="preview-modal-btn"
                         >
@@ -24,13 +35,21 @@ const PreviewModal = ({ isOpen, onClose, onExport, isExporting, exportingFormat,
                         </button>
                         <button
                             type="button"
-                            onClick={() => onExport("word")}
+                            onClick={() => onExport("word", exportFileBaseName)}
                             disabled={isExporting}
                             className="preview-modal-btn"
                         >
                             {isExporting && exportingFormat === "word" ? "Exporting..." : "Word"}
                         </button>
                     </div>
+                </div>
+                <div className="preview-modal-filename">
+                    <ExportFilenamePicker
+                        inputId="preview-export-filename"
+                        value={exportFileBaseName}
+                        onChange={onExportFileBaseNameChange}
+                        suggestions={exportFileSuggestions}
+                    />
                 </div>
                 <div className="preview-modal-body">{children}</div>
             </div>

@@ -60,7 +60,8 @@ describe("CVPreview", () => {
             skills: ["React", "Node.js", "Testing"],
             projects: longEntries,
             certifications: [],
-            awards: []
+            awards: [],
+            additionalInfo: ""
         };
 
         act(() => {
@@ -102,7 +103,8 @@ describe("CVPreview", () => {
             skills: ["React"],
             projects: [],
             certifications: [],
-            awards: []
+            awards: [],
+            additionalInfo: ""
         };
 
         const columns = buildPreviewColumns(
@@ -123,5 +125,73 @@ describe("CVPreview", () => {
         expect(headingTitles[1]).toBe("Profile Summary");
         expect(headingTitles[2]).toBe("Skills");
         expect(headingTitles).toContain("Personal Info");
+    });
+
+    it("omits empty optional sections from preview output", () => {
+        const cvData = {
+            name: "Jane",
+            email: "jane@example.com",
+            phone: "",
+            linkedin: "",
+            summary: "",
+            workExperience: ["<p>Built systems</p>"],
+            volunteerExperience: [],
+            education: [{ school: "Durham University", degree: "BSc Computer Science" }],
+            skills: ["React"],
+            projects: [],
+            certifications: [],
+            awards: [],
+            additionalInfo: ""
+        };
+
+        const columns = buildPreviewColumns(
+            cvData,
+            {
+                left: ["personal", "skills", "certifications", "awards"],
+                right: ["summary", "work", "volunteer", "education", "projects"],
+                editorCardOrder: []
+            },
+            "B"
+        );
+
+        const headingTitles = [...columns.leftBlocks, ...columns.rightBlocks]
+            .filter((block) => block.kind === "heading")
+            .map((block) => block.title);
+        expect(headingTitles).not.toContain("Certifications");
+        expect(headingTitles).not.toContain("Awards");
+        expect(headingTitles).not.toContain("Profile Summary");
+    });
+
+    it("renders additional info section when populated", () => {
+        const cvData = {
+            name: "Jane",
+            email: "jane@example.com",
+            phone: "",
+            linkedin: "",
+            summary: "",
+            workExperience: [],
+            volunteerExperience: [],
+            education: [],
+            skills: ["React"],
+            projects: [],
+            certifications: [],
+            awards: [],
+            additionalInfo: "<p>Open-source maintainer and conference speaker.</p>"
+        };
+
+        const columns = buildPreviewColumns(
+            cvData,
+            {
+                left: ["personal", "skills", "certifications", "awards"],
+                right: ["summary", "work", "volunteer", "education", "projects", "additional-info"],
+                editorCardOrder: []
+            },
+            "B"
+        );
+
+        const headingTitles = [...columns.leftBlocks, ...columns.rightBlocks]
+            .filter((block) => block.kind === "heading")
+            .map((block) => block.title);
+        expect(headingTitles).toContain("Additional Info");
     });
 });

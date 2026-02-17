@@ -1,6 +1,8 @@
 import {
+    getCompletionStatus,
     getDefaultSectionLayout,
     getOrderedSectionsForTemplate,
+    getOutputSectionsForTemplate,
     normalizeSectionLayout,
     reorderEditorCards
 } from "./sectionLayout";
@@ -12,6 +14,9 @@ describe("sectionLayout utils", () => {
         expect(layout.left).toContain("personal");
         expect(layout.right).toContain("summary");
         expect(layout.editorCardOrder).toContain("template-export");
+        expect(layout.editorCardOrder.indexOf("additional-info")).toBe(
+            layout.editorCardOrder.indexOf("template-export") - 1
+        );
     });
 
     it("enforces pinned sections at top and removes unknown sections", () => {
@@ -65,14 +70,59 @@ describe("sectionLayout utils", () => {
         expect(next.left[0]).toBe("personal");
     });
 
-    it("reorders utility cards in editor only", () => {
+    it("keeps utility cards locked in place", () => {
         const current = getDefaultSectionLayout();
         const next = reorderEditorCards(current, "save-load", "template-export");
 
         expect(next.left).toEqual(current.left);
         expect(next.right).toEqual(current.right);
-        expect(next.editorCardOrder.indexOf("save-load")).toBeLessThan(
-            next.editorCardOrder.indexOf("template-export")
+        expect(next.editorCardOrder).toEqual(current.editorCardOrder);
+    });
+
+    it("filters optional empty sections from output", () => {
+        const output = getOutputSectionsForTemplate(
+            {
+                left: ["personal", "skills", "certifications", "awards"],
+                right: ["summary", "work", "volunteer", "education", "projects"],
+                editorCardOrder: []
+            },
+            "A",
+            {
+                name: "Jane Doe",
+                email: "jane@example.com",
+                skills: ["React"],
+                workExperience: ["<p>Built systems</p>"]
+            }
         );
+
+        expect(output.right).toContain("personal");
+        expect(output.right).not.toContain("certifications");
+        expect(output.right).not.toContain("awards");
+    });
+
+    it("computes core completion independently of optional sections", () => {
+        const completion = getCompletionStatus({
+            name: "Jane Doe",
+            email: "jane@example.com",
+            skills: ["React"],
+            education: [{ school: "Durham University", degree: "BSc Computer Science" }],
+            projects: ["<p>Capstone</p>"]
+        });
+
+        expect(completion.isCoreReady).toBe(true);
+        expect(completion.completionPercent).toBe(100);
+    });
+
+    it("fails core completion when required core section is missing", () => {
+        const completion = getCompletionStatus({
+            name: "Jane Doe",
+            email: "jane@example.com",
+            skills: ["React"],
+            projects: ["<p>Capstone</p>"]
+        });
+
+        expect(completion.coreChecks.education).toBe(false);
+        expect(completion.isCoreReady).toBe(false);
+        expect(completion.completionPercent).toBeLessThan(100);
     });
 });

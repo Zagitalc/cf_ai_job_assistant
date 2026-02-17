@@ -17,6 +17,7 @@ const DEFAULT_EDITOR_CARD_ORDER = [
     "skills",
     "certifications",
     "awards",
+    "additional-info",
     "template-export",
     "save-load"
 ];
@@ -156,9 +157,10 @@ export const normalizeSectionLayout = (layoutInput = {}, cvData = {}) => {
 
     editorCardOrder = applyColumnOrderToEditor(editorCardOrder, left, right);
 
-    const utilities = editorCardOrder.filter(isUtilitySection);
-    const missingUtilities = UTILITY_SECTION_IDS.filter((id) => !utilities.includes(id));
-    editorCardOrder = [...editorCardOrder, ...missingUtilities];
+    editorCardOrder = [
+        ...editorCardOrder.filter((id) => !isUtilitySection(id)),
+        ...UTILITY_SECTION_IDS
+    ];
 
     return {
         left,
@@ -223,20 +225,8 @@ export const reorderEditorCards = (layout, activeId, overId, cvData = {}) => {
         return normalized;
     }
 
-    if (activeMeta.isUtility) {
-        const fromIndex = normalized.editorCardOrder.indexOf(activeId);
-        const toIndex = normalized.editorCardOrder.indexOf(overId);
-        if (fromIndex < 0 || toIndex < 0) {
-            return normalized;
-        }
-
-        return normalizeSectionLayout(
-            {
-                ...normalized,
-                editorCardOrder: moveItem(normalized.editorCardOrder, fromIndex, toIndex)
-            },
-            cvData
-        );
+    if (activeMeta.locked || overMeta.locked) {
+        return normalized;
     }
 
     if (activeMeta.pinned || overMeta.isUtility) {
@@ -255,7 +245,7 @@ export const canDragSection = (sectionId) => {
     if (!section) {
         return false;
     }
-    return !section.pinned;
+    return !section.pinned && !section.locked;
 };
 
 export const getOrderedSectionsForTemplate = (layout, template, cvData = {}) => {
@@ -270,6 +260,7 @@ export const getOrderedSectionsForTemplate = (layout, template, cvData = {}) => 
             "volunteer",
             "education",
             "projects",
+            "additional-info",
             "certifications",
             "awards"
         ];
@@ -291,5 +282,54 @@ export const getOrderedSectionsForTemplate = (layout, template, cvData = {}) => 
         right: normalized.right,
         linear: [...normalized.left, ...normalized.right],
         editorCardOrder: normalized.editorCardOrder
+    };
+};
+
+export const shouldRenderInOutput = (sectionId, cvData = {}, registryMeta = SECTION_REGISTRY) => {
+    const section = registryMeta[sectionId];
+    if (!section || section.outputRenderable === false) {
+        return false;
+    }
+
+    if (section.hideWhenEmptyInOutput === false) {
+        return true;
+    }
+
+    return Boolean(section.dataPresenceChecker?.(cvData));
+};
+
+export const getOutputSectionsForTemplate = (layout, template, cvData = {}, registryMeta = SECTION_REGISTRY) => {
+    const ordered = getOrderedSectionsForTemplate(layout, template, cvData);
+    return {
+        ...ordered,
+        left: ordered.left.filter((sectionId) => shouldRenderInOutput(sectionId, cvData, registryMeta)),
+        right: ordered.right.filter((sectionId) => shouldRenderInOutput(sectionId, cvData, registryMeta)),
+        linear: ordered.linear.filter((sectionId) => shouldRenderInOutput(sectionId, cvData, registryMeta))
+    };
+};
+
+export const getCompletionStatus = (cvData = {}) => {
+    const hasName = String(cvData.name || "").trim().length > 0;
+    const hasEmail = String(cvData.email || "").trim().length > 0;
+    const hasPhone = String(cvData.phone || "").trim().length > 0;
+    const hasSkills = Boolean(SECTION_REGISTRY.skills?.dataPresenceChecker?.(cvData));
+    const hasEducation = Boolean(SECTION_REGISTRY.education?.dataPresenceChecker?.(cvData));
+    const hasWork = Boolean(SECTION_REGISTRY.work?.dataPresenceChecker?.(cvData));
+    const hasProjects = Boolean(SECTION_REGISTRY.projects?.dataPresenceChecker?.(cvData));
+
+    const coreChecks = {
+        personal: hasName && (hasEmail || hasPhone),
+        skills: hasSkills,
+        education: hasEducation,
+        experience: hasWork || hasProjects
+    };
+
+    const passedCount = Object.values(coreChecks).filter(Boolean).length;
+    const completionPercent = Math.round((passedCount / Object.keys(coreChecks).length) * 100);
+
+    return {
+        coreChecks,
+        isCoreReady: passedCount === Object.keys(coreChecks).length,
+        completionPercent
     };
 };

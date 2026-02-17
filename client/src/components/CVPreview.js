@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { getOrderedSectionsForTemplate } from "../utils/sectionLayout";
+import { getOutputSectionsForTemplate } from "../utils/sectionLayout";
 import "./../templates/templateA.css";
 import "./../templates/TemplateB.css";
 
@@ -155,7 +155,8 @@ const buildSectionBlocks = (cvData, nextId) => {
         skills,
         projects,
         certifications,
-        awards
+        awards,
+        additionalInfo
     } = cvData;
 
     const pushRichSection = (sectionKey, title, entries) => {
@@ -174,24 +175,12 @@ const buildSectionBlocks = (cvData, nextId) => {
             .filter((entry) => !isRichTextEmpty(entry));
 
         if (validEntries.length === 0) {
-            blocks.push({
-                id: nextId(`${sectionKey}-empty`),
-                sectionKey,
-                kind: "empty",
-                text: "N/A"
-            });
-            return blocks;
+            return [];
         }
 
         validEntries.forEach((entry, entryIndex) => {
             const segments = splitRichHtmlSegments(entry);
             if (segments.length === 0) {
-                blocks.push({
-                    id: nextId(`${sectionKey}-${entryIndex}-empty`),
-                    sectionKey,
-                    kind: "empty",
-                    text: "N/A"
-                });
                 return;
             }
 
@@ -217,19 +206,22 @@ const buildSectionBlocks = (cvData, nextId) => {
             kind: "heading",
             title: "Personal Info",
             keepWithNext: true
-        },
-        {
+        }
+    ];
+    const personalRows = [
+        { label: "Name", value: name || "" },
+        { label: "Email", value: email || "" },
+        { label: "Phone", value: phone || "" },
+        { label: "LinkedIn", value: linkedin || "" }
+    ].filter((row) => String(row.value || "").trim());
+    if (personalRows.length > 0) {
+        sections.personal.push({
             id: nextId("personal-content"),
             sectionKey: "personal",
             kind: "keyValueList",
-            rows: [
-                { label: "Name", value: name || "N/A" },
-                { label: "Email", value: email || "N/A" },
-                { label: "Phone", value: phone || "N/A" },
-                { label: "LinkedIn", value: linkedin || "N/A" }
-            ]
-        }
-    ];
+            rows: personalRows
+        });
+    }
 
     const validSkills = (skills || []).filter((skill) => String(skill || "").trim());
     sections.skills = [
@@ -249,14 +241,7 @@ const buildSectionBlocks = (cvData, nextId) => {
                       items: validSkills
                   }
               ]
-            : [
-                  {
-                      id: nextId("skills-empty"),
-                      sectionKey: "skills",
-                      kind: "empty",
-                      text: "N/A"
-                  }
-              ])
+            : [])
     ];
 
     const summaryLines = String(summary || "")
@@ -273,14 +258,7 @@ const buildSectionBlocks = (cvData, nextId) => {
             keepWithNext: true
         },
         ...(summaryLines.length === 0
-            ? [
-                  {
-                      id: nextId("summary-empty"),
-                      sectionKey: "summary",
-                      kind: "empty",
-                      text: "N/A"
-                  }
-              ]
+            ? []
             : summaryLines.map((line, index) => ({
                   id: nextId(`summary-content-${index}`),
                   sectionKey: "summary",
@@ -306,26 +284,20 @@ const buildSectionBlocks = (cvData, nextId) => {
                   sectionKey: "education",
                   kind: "education",
                   education: {
-                      school: edu.school || "N/A",
-                      degree: edu.degree || "N/A",
-                      location: edu.location || "N/A",
+                      school: edu.school || "",
+                      degree: edu.degree || "",
+                      location: edu.location || "",
                       dateRange: formatDateRange(edu.startDate, edu.endDate),
                       additionalInfo: normalizeRichHtmlForPreview(edu.additionalInfo || "")
                   }
               }))
-            : [
-                  {
-                      id: nextId("education-empty"),
-                      sectionKey: "education",
-                      kind: "empty",
-                      text: "N/A"
-                  }
-              ])
+            : [])
     ];
 
     sections.projects = pushRichSection("projects", "Projects", projects);
     sections.certifications = pushRichSection("certifications", "Certifications", certifications);
     sections.awards = pushRichSection("awards", "Awards", awards);
+    sections["additional-info"] = pushRichSection("additional-info", "Additional Info", [additionalInfo || ""]);
 
     return sections;
 };
@@ -334,7 +306,7 @@ export const buildPreviewColumns = (cvData, sectionLayout, template) => {
     let blockId = 0;
     const nextId = (prefix) => `${prefix}-${blockId++}`;
     const sectionBlocks = buildSectionBlocks(cvData, nextId);
-    const ordered = getOrderedSectionsForTemplate(sectionLayout, template, cvData);
+    const ordered = getOutputSectionsForTemplate(sectionLayout, template, cvData);
 
     const leftBlocks = [];
     const rightBlocks = [];
@@ -488,12 +460,13 @@ const renderBlock = (block) => {
 
     if (block.kind === "education") {
         const edu = block.education || {};
+        const hasDateRange = String(edu.dateRange || "").trim() && edu.dateRange !== "N/A";
         return (
             <div className="preview-education-entry">
-                <div className="preview-education-school">{edu.school || "N/A"}</div>
-                <div>{edu.degree || "N/A"}</div>
-                <div>{edu.location || "N/A"}</div>
-                <div className="preview-education-dates">{edu.dateRange || "N/A"}</div>
+                {edu.school ? <div className="preview-education-school">{edu.school}</div> : null}
+                {edu.degree ? <div>{edu.degree}</div> : null}
+                {edu.location ? <div>{edu.location}</div> : null}
+                {hasDateRange ? <div className="preview-education-dates">{edu.dateRange}</div> : null}
                 {edu.additionalInfo && !isRichTextEmpty(edu.additionalInfo) ? (
                     <div className="preview-rich-entry" dangerouslySetInnerHTML={{ __html: edu.additionalInfo }} />
                 ) : null}

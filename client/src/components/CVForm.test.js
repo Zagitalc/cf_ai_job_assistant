@@ -30,6 +30,7 @@ const baseCvData = {
     projects: [],
     certifications: [],
     awards: [],
+    additionalInfo: "",
     sectionLayout: getDefaultSectionLayout()
 };
 
@@ -38,8 +39,9 @@ const templateOptions = [
     { value: "B", label: "Template B (Modern Sidebar)" }
 ];
 
-const FormHarness = ({ layoutMetrics }) => {
+const FormHarness = ({ layoutMetrics, onExport = () => {} }) => {
     const [cvData, setCvData] = useState(baseCvData);
+    const [exportName, setExportName] = useState("JaneDoe_Resume_TemplateA_2026-02-17");
 
     return (
         <CVForm
@@ -50,10 +52,17 @@ const FormHarness = ({ layoutMetrics }) => {
             template="A"
             setTemplate={() => {}}
             templateOptions={templateOptions}
-            onExport={() => {}}
+            onExport={onExport}
             isExporting={false}
             exportingFormat=""
             exportError={null}
+            exportFileBaseName={exportName}
+            onExportFileBaseNameChange={setExportName}
+            exportFileSuggestions={[
+                "JaneDoe_Resume_TemplateA_2026-02-17",
+                "JaneDoe_CV_TemplateA_2026-02-17",
+                "CV_TemplateA_2026-02-17"
+            ]}
             onSave={() => {}}
             onLoad={() => {}}
             layoutMetrics={
@@ -207,5 +216,53 @@ describe("CVForm", () => {
         });
 
         expect(container.querySelector('[aria-label="Work editor"]')).toBeNull();
+    });
+
+    it("keeps utility cards non-draggable and shows additional info card", () => {
+        const templateCard = getCardBySectionId(container, "template-export");
+        const saveLoadCard = getCardBySectionId(container, "save-load");
+        const additionalInfoCard = getCardBySectionId(container, "additional-info");
+
+        expect(templateCard.getAttribute("draggable")).toBe("false");
+        expect(saveLoadCard.getAttribute("draggable")).toBe("false");
+        expect(additionalInfoCard).not.toBeNull();
+    });
+
+    it("renders export filename picker in template-export section", () => {
+        const templateCard = getCardBySectionId(container, "template-export");
+        const toggle = templateCard.querySelector(".card-action-btn");
+        act(() => {
+            Simulate.click(toggle);
+        });
+
+        expect(container.querySelector("#export-filename")).not.toBeNull();
+        expect(container.querySelectorAll(".filename-suggestion-chip").length).toBeGreaterThan(0);
+    });
+
+    it("passes filename to export action", () => {
+        const onExport = jest.fn();
+
+        act(() => {
+            root.unmount();
+            root = createRoot(container);
+            root.render(<FormHarness onExport={onExport} />);
+        });
+
+        const templateCard = getCardBySectionId(container, "template-export");
+        act(() => {
+            Simulate.click(templateCard.querySelector(".card-action-btn"));
+        });
+
+        const filenameInput = container.querySelector("#export-filename");
+        act(() => {
+            Simulate.change(filenameInput, { target: { value: "Custom CV Name" } });
+        });
+
+        const pdfBtn = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Export PDF");
+        act(() => {
+            Simulate.click(pdfBtn);
+        });
+
+        expect(onExport).toHaveBeenCalledWith("pdf", "Custom CV Name");
     });
 });
