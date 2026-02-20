@@ -9,6 +9,9 @@ import "./index.css";
 import "react-quill/dist/quill.snow.css";
 
 const THEME_STORAGE_KEY = "onclickcv.theme";
+const API_BASE_URL =
+    process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:4000");
+const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 const getInitialTheme = () => {
     if (typeof window === "undefined") {
@@ -113,7 +116,7 @@ function App() {
         setExportError(null);
 
         try {
-            const endpoint = `http://localhost:4000/api/export/${format}`;
+            const endpoint = apiUrl(`/api/export/${format}`);
             const payload = {
                 cvData: {
                     ...cvData,
@@ -153,7 +156,7 @@ function App() {
 
     const handleSaveCV = async (userId) => {
         try {
-            const response = await fetch("http://localhost:4000/api/cv/save", {
+            const response = await fetch(apiUrl("/api/cv/save"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -177,7 +180,7 @@ function App() {
 
     const handleLoadCV = async (userId) => {
         try {
-            const response = await fetch(`http://localhost:4000/api/cv/${userId}`);
+            const response = await fetch(apiUrl(`/api/cv/${userId}`));
             if (!response.ok) {
                 throw new Error("CV not found");
             }
