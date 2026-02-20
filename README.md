@@ -193,6 +193,16 @@ docker run -d \
 Open:
 - `http://localhost:4000`
 
+### Run app container against MongoDB on your Mac host
+
+If MongoDB is already running on your machine (outside Docker), use:
+
+```bash
+docker run -p 4000:4000 \
+  -e MONGODB_URI=mongodb://host.docker.internal:27017/onclickcv \
+  zach1328/onclickcv:latest
+```
+
 ### Push to Docker Hub
 
 ```bash
