@@ -1,0 +1,21 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - onclickcv-mongo-data:/data/db
+
+  app:
+    build: .
+    image: zach1328/onclickcv:latest
+    depends_on:
+      - mongo
+    ports:
+      - "4000:4000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/onclickcv
+      NODE_ENV: production
+      PORT: 4000
+
+volumes:
+  onclickcv-mongo-data:

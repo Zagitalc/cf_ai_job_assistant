@@ -142,6 +142,64 @@ You can now use Tailwind utility classes throughout your React components.
 
 The backend server runs by default on `http://localhost:4000`, and the frontend runs on `http://localhost:3000`.
 
+## Docker
+
+You can run OnClickCV as a single app container (frontend + backend) with MongoDB.
+
+### Build the image
+
+From project root:
+
+```bash
+docker build -t zach1328/onclickcv:latest .
+```
+
+### Run with Docker Compose (recommended)
+
+```bash
+docker compose up -d --build
+```
+
+Open:
+- `http://localhost:4000`
+
+Stop:
+
+```bash
+docker compose down
+```
+
+### Run with `docker run` (manual)
+
+```bash
+docker network create onclickcv-net
+
+docker volume create onclickcv-mongo-data
+
+docker run -d \
+  --name onclickcv-mongo \
+  --network onclickcv-net \
+  -v onclickcv-mongo-data:/data/db \
+  mongo:7
+
+docker run -d \
+  --name onclickcv-app \
+  --network onclickcv-net \
+  -p 4000:4000 \
+  -e MONGODB_URI=mongodb://onclickcv-mongo:27017/onclickcv \
+  zach1328/onclickcv:latest
+```
+
+Open:
+- `http://localhost:4000`
+
+### Push to Docker Hub
+
+```bash
+docker login
+docker push zach1328/onclickcv:latest
+```
+
 ## Usage
 
 - Use the **CV Form** on the left to fill out your personal information, add skills dynamically, and add multiple education entries with rich text formatting.
