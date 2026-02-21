@@ -182,6 +182,22 @@ export const SECTION_REGISTRY = {
         renderKey: "additional-info",
         dataPresenceChecker: (cvData = {}) => hasRichValue(cvData.additionalInfo)
     },
+    "ai-review": {
+        id: "ai-review",
+        title: "AI Review",
+        column: "utility",
+        pinned: false,
+        locked: true,
+        isComplex: false,
+        isUtility: true,
+        requiredByDefault: false,
+        optional: false,
+        hideWhenEmptyInOutput: true,
+        completionGroup: "utility",
+        outputRenderable: false,
+        renderKey: "ai-review",
+        dataPresenceChecker: () => true
+    },
     "template-export": {
         id: "template-export",
         title: "Template & Export",

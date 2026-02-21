@@ -13,6 +13,11 @@ const SectionCard = ({
     statusLabel,
     statusTone,
     sectionCategoryLabel,
+    showAiAction,
+    onAiClick,
+    aiActionDisabled,
+    aiActionLabel,
+    footer,
     children
 }) => (
     <section
@@ -35,6 +40,16 @@ const SectionCard = ({
             <div className="card-stack-actions">
                 {statusLabel ? <span className="card-status-chip">{statusLabel}</span> : null}
                 <span className={`card-status-dot tone-${statusTone || "neutral"}`} aria-hidden="true" />
+                {showAiAction ? (
+                    <button
+                        type="button"
+                        onClick={() => onAiClick && onAiClick(section.id)}
+                        className="card-ai-btn"
+                        disabled={aiActionDisabled}
+                    >
+                        {aiActionLabel || "AI"}
+                    </button>
+                ) : null}
                 {section.isComplex ? (
                     <button type="button" onClick={() => onOpenComplex(section.id)} className="card-action-btn">
                         Edit
@@ -48,6 +63,7 @@ const SectionCard = ({
         </div>
         {!section.isComplex && isOpen ? <div className="cv-section-body">{children}</div> : null}
         {section.isComplex ? <div className="card-complex-hint">Open dedicated editor for this section.</div> : null}
+        {footer ? <div className="cv-section-footer">{footer}</div> : null}
     </section>
 );
 

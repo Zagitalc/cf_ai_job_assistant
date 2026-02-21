@@ -54,6 +54,7 @@ describe("App", () => {
         });
         window.URL.createObjectURL = jest.fn(() => "blob:mock");
         window.URL.revokeObjectURL = jest.fn();
+        delete process.env.REACT_APP_AI_REVIEW_ENABLED;
     });
 
     afterEach(() => {
@@ -61,6 +62,7 @@ describe("App", () => {
             root.unmount();
         });
         container.remove();
+        delete process.env.REACT_APP_AI_REVIEW_ENABLED;
     });
 
     it("loads theme from localStorage and toggles/persists it", () => {
@@ -168,5 +170,48 @@ describe("App", () => {
         });
 
         expect(container.textContent).toContain("TemplateB");
+    });
+
+    it("switches desktop right panel between preview and AI review when AI is enabled", () => {
+        process.env.REACT_APP_AI_REVIEW_ENABLED = "true";
+        window.innerWidth = 1280;
+
+        act(() => {
+            root.render(<App />);
+        });
+
+        const aiTab = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "AI Review");
+        expect(aiTab).toBeTruthy();
+
+        act(() => {
+            Simulate.click(aiTab);
+        });
+
+        expect(container.querySelector('[aria-label="AI review panel"]')).not.toBeNull();
+    });
+
+    it("opens mobile AI review modal from speed dial when AI is enabled", () => {
+        process.env.REACT_APP_AI_REVIEW_ENABLED = "true";
+        window.innerWidth = 800;
+
+        act(() => {
+            root.render(<App />);
+        });
+
+        const actionsFab = container.querySelector('button[aria-label="Open quick actions"]');
+        expect(actionsFab).not.toBeNull();
+
+        act(() => {
+            Simulate.click(actionsFab);
+        });
+
+        const aiReviewOption = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "AI Review");
+        expect(aiReviewOption).toBeTruthy();
+
+        act(() => {
+            Simulate.click(aiReviewOption);
+        });
+
+        expect(container.querySelector('[aria-label="AI review modal"]')).not.toBeNull();
     });
 });
