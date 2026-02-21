@@ -13,8 +13,9 @@ describe("sectionLayout utils", () => {
 
         expect(layout.left).toContain("personal");
         expect(layout.right).toContain("summary");
+        expect(layout.editorCardOrder).toContain("ai-review");
         expect(layout.editorCardOrder).toContain("template-export");
-        expect(layout.editorCardOrder.indexOf("additional-info")).toBe(
+        expect(layout.editorCardOrder.indexOf("ai-review")).toBe(
             layout.editorCardOrder.indexOf("template-export") - 1
         );
     });

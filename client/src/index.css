@@ -178,6 +178,31 @@ body {
     padding-top: 2px;
     min-height: 100%;
     border-radius: 18px;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.preview-panel-tabs {
+    width: 100%;
+    display: inline-flex;
+    gap: 8px;
+}
+
+.panel-tab-btn {
+    border: 1px solid var(--border-color);
+    background: var(--bg-muted);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.panel-tab-btn.active {
+    background: var(--btn-primary);
+    color: var(--btn-text);
+    border-color: var(--btn-primary);
 }
 
 .cv-preview-paper {
@@ -470,6 +495,22 @@ body {
     border-color: var(--btn-primary);
 }
 
+.card-ai-btn {
+    border: 1px solid color-mix(in srgb, var(--btn-primary) 34%, var(--border-color));
+    background: color-mix(in srgb, var(--btn-primary) 8%, var(--bg-panel));
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.card-ai-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .card-complex-hint {
     padding: 10px 14px 12px;
     font-size: 0.8rem;
@@ -504,6 +545,243 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.cv-section-footer {
+    padding: 0 14px 12px;
+}
+
+.section-ai-feedback {
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+}
+
+.section-ai-toggle {
+    border: 1px solid var(--border-color);
+    background: var(--bg-muted);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.ai-suggestion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ai-suggestion-card {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-muted) 72%, var(--bg-panel));
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.ai-suggestion-card.status-accepted {
+    border-color: color-mix(in srgb, var(--success) 40%, var(--border-color));
+}
+
+.ai-suggestion-card.status-dismissed {
+    opacity: 0.72;
+}
+
+.ai-suggestion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.ai-suggestion-header h4 {
+    margin: 0;
+    font-size: 0.86rem;
+}
+
+.ai-suggestion-priority {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+}
+
+.ai-suggestion-reason {
+    margin: 8px 0 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.ai-suggestion-path {
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    font-family: "JetBrains Mono", monospace;
+}
+
+.ai-suggestion-text {
+    font-size: 0.8rem;
+    padding: 7px 8px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--border-color) 70%, transparent);
+}
+
+.ai-suggestion-actions {
+    margin-top: 8px;
+    display: inline-flex;
+    gap: 8px;
+}
+
+.ai-action-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: var(--btn-primary);
+    color: var(--btn-text);
+}
+
+.ai-action-btn.ghost {
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    background: var(--bg-panel);
+}
+
+.ai-empty-state {
+    border: 1px dashed var(--border-color);
+    background: color-mix(in srgb, var(--bg-muted) 64%, var(--bg-panel));
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+}
+
+.ai-review-panel {
+    width: 100%;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 16px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.ai-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ai-panel-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.ai-panel-header p {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.ai-mode-row {
+    margin-bottom: 10px;
+}
+
+.ai-job-match-wrap {
+    margin-bottom: 12px;
+}
+
+.ai-overall-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 10px;
+    background: color-mix(in srgb, var(--bg-muted) 68%, var(--bg-panel));
+}
+
+.ai-overall-score {
+    width: 56px;
+    height: 56px;
+    border-radius: 999px;
+    background: var(--btn-primary);
+    color: var(--btn-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1rem;
+}
+
+.ai-overall-tier {
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ai-section-heading {
+    margin: 14px 0 8px;
+    font-size: 0.92rem;
+}
+
+.ai-jobmatch-results h4 {
+    margin: 0 0 6px;
+    font-size: 0.84rem;
+}
+
+.ai-jobmatch-score {
+    font-size: 0.84rem;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.ai-jobmatch-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.mobile-speed-dial {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 70;
+}
+
+.mobile-speed-options {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.mobile-speed-option {
+    border: none;
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+    cursor: pointer;
+}
+
+.ai-review-modal-panel {
+    height: min(95vh, 980px);
+}
+
+.ai-review-modal-body {
+    padding: 12px;
 }
 
 .form-grid {
@@ -951,6 +1229,10 @@ body {
     .save-load-row {
         grid-template-columns: 1fr auto auto;
         align-items: end;
+    }
+
+    .ai-jobmatch-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

@@ -42,6 +42,24 @@ const templateOptions = [
 const FormHarness = ({ layoutMetrics, onExport = () => {} }) => {
     const [cvData, setCvData] = useState(baseCvData);
     const [exportName, setExportName] = useState("JaneDoe_Resume_TemplateA_2026-02-17");
+    const [sectionAiState, setSectionAiState] = useState({
+        summary: {
+            status: "ready",
+            isExpanded: true,
+            hasFetched: true,
+            suggestions: [
+                {
+                    id: "sug_1",
+                    priority: 1,
+                    title: "Lead with impact",
+                    reason: "Stronger opening improves recruiter scan.",
+                    fieldPath: "summary",
+                    suggestedText: "Senior engineer with 7+ years delivering measurable platform gains.",
+                    status: "pending"
+                }
+            ]
+        }
+    });
 
     return (
         <CVForm
@@ -73,6 +91,42 @@ const FormHarness = ({ layoutMetrics, onExport = () => {} }) => {
                 }
             }
             isMobile={false}
+            aiEnabled={true}
+            sectionAiState={sectionAiState}
+            onRequestSectionAi={() => {}}
+            onAcceptSectionSuggestion={(sectionId, suggestionId) =>
+                setSectionAiState((prev) => ({
+                    ...prev,
+                    [sectionId]: {
+                        ...(prev[sectionId] || {}),
+                        suggestions: (prev[sectionId]?.suggestions || []).map((suggestion) =>
+                            suggestion.id === suggestionId ? { ...suggestion, status: "accepted" } : suggestion
+                        )
+                    }
+                }))
+            }
+            onDismissSectionSuggestion={(sectionId, suggestionId) =>
+                setSectionAiState((prev) => ({
+                    ...prev,
+                    [sectionId]: {
+                        ...(prev[sectionId] || {}),
+                        suggestions: (prev[sectionId]?.suggestions || []).map((suggestion) =>
+                            suggestion.id === suggestionId ? { ...suggestion, status: "dismissed" } : suggestion
+                        )
+                    }
+                }))
+            }
+            onToggleSectionSuggestions={(sectionId) =>
+                setSectionAiState((prev) => ({
+                    ...prev,
+                    [sectionId]: {
+                        ...(prev[sectionId] || {}),
+                        isExpanded: !prev[sectionId]?.isExpanded
+                    }
+                }))
+            }
+            onOpenAIReview={() => {}}
+            aiReviewStatus="idle"
         />
     );
 };
@@ -221,10 +275,12 @@ describe("CVForm", () => {
     it("keeps utility cards non-draggable and shows additional info card", () => {
         const templateCard = getCardBySectionId(container, "template-export");
         const saveLoadCard = getCardBySectionId(container, "save-load");
+        const aiReviewCard = getCardBySectionId(container, "ai-review");
         const additionalInfoCard = getCardBySectionId(container, "additional-info");
 
         expect(templateCard.getAttribute("draggable")).toBe("false");
         expect(saveLoadCard.getAttribute("draggable")).toBe("false");
+        expect(aiReviewCard.getAttribute("draggable")).toBe("false");
         expect(additionalInfoCard).not.toBeNull();
     });
 
@@ -264,5 +320,28 @@ describe("CVForm", () => {
         });
 
         expect(onExport).toHaveBeenCalledWith("pdf", "Custom CV Name");
+    });
+
+    it("accepts and dismisses inline section AI suggestions", () => {
+        const summaryCard = getCardBySectionId(container, "summary");
+        const acceptButton = Array.from(summaryCard.querySelectorAll(".ai-action-btn")).find(
+            (btn) => btn.textContent === "Accept"
+        );
+        expect(acceptButton).toBeTruthy();
+
+        act(() => {
+            Simulate.click(acceptButton);
+        });
+
+        expect(summaryCard.textContent).toContain("Applied");
+
+        const dismissButton = Array.from(summaryCard.querySelectorAll(".ai-action-btn")).find(
+            (btn) => btn.textContent === "Dismiss"
+        );
+        if (dismissButton) {
+            act(() => {
+                Simulate.click(dismissButton);
+            });
+        }
     });
 });

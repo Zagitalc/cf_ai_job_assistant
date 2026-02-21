@@ -9,6 +9,7 @@ const SECTION_META = {
     certifications: { column: "left", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.certifications || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
     awards: { column: "left", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => (cvData.awards || []).some((entry) => String(entry || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()) },
     "additional-info": { column: "right", pinned: false, outputRenderable: true, hideWhenEmptyInOutput: true, dataPresenceChecker: (cvData = {}) => String(cvData.additionalInfo || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().length > 0 },
+    "ai-review": { column: "utility", pinned: false, locked: true, isUtility: true, outputRenderable: false, hideWhenEmptyInOutput: true, dataPresenceChecker: () => true },
     "template-export": { column: "utility", pinned: false, locked: true, isUtility: true, outputRenderable: false, hideWhenEmptyInOutput: true, dataPresenceChecker: () => true },
     "save-load": { column: "utility", pinned: false, locked: true, isUtility: true, outputRenderable: false, hideWhenEmptyInOutput: true, dataPresenceChecker: () => true }
 };
@@ -28,6 +29,7 @@ const DEFAULT_EDITOR_CARD_ORDER = [
     "certifications",
     "awards",
     "additional-info",
+    "ai-review",
     "template-export",
     "save-load"
 ];

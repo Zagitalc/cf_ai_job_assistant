@@ -3,6 +3,7 @@ import ReactQuill from "react-quill";
 import SectionEditorOverlay from "./SectionEditorOverlay";
 import SectionCard from "./forms/SectionCard";
 import ExportFilenamePicker from "./ExportFilenamePicker";
+import AISuggestionList from "./AISuggestionList";
 import { SECTION_REGISTRY } from "../constants/sectionRegistry";
 import { canDragSection, getCompletionStatus, reorderEditorCards } from "../utils/sectionLayout";
 import "react-quill/dist/quill.snow.css";
@@ -82,7 +83,15 @@ const CVForm = ({
     onSave,
     onLoad,
     layoutMetrics,
-    isMobile
+    isMobile,
+    aiEnabled,
+    sectionAiState,
+    onRequestSectionAi,
+    onAcceptSectionSuggestion,
+    onDismissSectionSuggestion,
+    onToggleSectionSuggestions,
+    onOpenAIReview,
+    aiReviewStatus
 }) => {
     const [newSkill, setNewSkill] = useState("");
     const [newCert, setNewCert] = useState("");
@@ -342,6 +351,26 @@ const CVForm = ({
             return "Actions";
         }
 
+        if (sectionId === "ai-review") {
+            if (!aiEnabled) {
+                return "Disabled";
+            }
+
+            if (aiReviewStatus === "loading") {
+                return "Reviewing";
+            }
+
+            if (aiReviewStatus === "error") {
+                return "Error";
+            }
+
+            if (aiReviewStatus === "ready") {
+                return "Ready";
+            }
+
+            return "Optional";
+        }
+
         if (sectionId === "save-load") {
             return userId ? "Ready" : "Optional";
         }
@@ -351,7 +380,7 @@ const CVForm = ({
     };
 
     const sectionTone = (sectionId) => {
-        if (sectionId === "template-export" || sectionId === "save-load") {
+        if (sectionId === "template-export" || sectionId === "save-load" || sectionId === "ai-review") {
             return "neutral";
         }
 
@@ -814,6 +843,24 @@ const CVForm = ({
             );
         }
 
+        if (sectionId === "ai-review") {
+            return (
+                <>
+                    <div className="form-meta">
+                        Run an AI scan of your current CV. Suggestions are advisory and only apply when accepted.
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => onOpenAIReview && onOpenAIReview()}
+                        className="primary-btn"
+                        disabled={!aiEnabled}
+                    >
+                        {aiEnabled ? "Open AI Review" : "AI Review Disabled"}
+                    </button>
+                </>
+            );
+        }
+
         if (sectionId === "save-load") {
             return (
                 <>
@@ -844,6 +891,50 @@ const CVForm = ({
 
     const completion = useMemo(() => getCompletionStatus(cvData), [cvData]);
 
+    const getSectionSuggestionState = (sectionId) => sectionAiState?.[sectionId] || {};
+
+    const renderSectionAiFooter = (sectionId) => {
+        if (!aiEnabled || SECTION_REGISTRY[sectionId]?.isUtility || sectionId === "personal") {
+            return null;
+        }
+
+        const aiState = getSectionSuggestionState(sectionId);
+        const suggestions = aiState.suggestions || [];
+        const isExpanded = Boolean(aiState.isExpanded);
+        const loading = aiState.status === "loading";
+        const error = aiState.status === "error";
+
+        if (!loading && !error && suggestions.length === 0 && !aiState.hasFetched) {
+            return null;
+        }
+
+        return (
+            <div className="section-ai-feedback">
+                <button
+                    type="button"
+                    className="section-ai-toggle"
+                    onClick={() => onToggleSectionSuggestions && onToggleSectionSuggestions(sectionId)}
+                >
+                    {isExpanded ? "Hide AI Suggestions" : `Show AI Suggestions (${suggestions.length})`}
+                </button>
+                {loading ? <div className="form-meta">Analyzing section...</div> : null}
+                {error ? <div className="form-error">{aiState.error || "Failed to generate suggestions."}</div> : null}
+                {isExpanded && !loading ? (
+                    <AISuggestionList
+                        suggestions={suggestions}
+                        emptyLabel="No section suggestions."
+                        onAccept={(suggestion) =>
+                            onAcceptSectionSuggestion && onAcceptSectionSuggestion(sectionId, suggestion.id)
+                        }
+                        onDismiss={(suggestion) =>
+                            onDismissSectionSuggestion && onDismissSectionSuggestion(sectionId, suggestion.id)
+                        }
+                    />
+                ) : null}
+            </div>
+        );
+    };
+
     return (
         <form className="cv-form card-stack-form" aria-label="CV Form">
             <div className="stack-dashboard">
@@ -872,6 +963,7 @@ const CVForm = ({
 
             {orderedSections.map((section) => {
                 const isSimpleOpen = !section.isComplex && openSimpleSection === section.id;
+                const sectionAi = getSectionSuggestionState(section.id);
                 return (
                     <SectionCard
                         key={section.id}
@@ -887,6 +979,11 @@ const CVForm = ({
                         statusLabel={sectionStatus(section.id)}
                         statusTone={sectionTone(section.id)}
                         sectionCategoryLabel={section.completionGroup === "core" ? "Core" : section.optional ? "Optional" : ""}
+                        showAiAction={aiEnabled && !section.isUtility && section.id !== "personal"}
+                        onAiClick={onRequestSectionAi}
+                        aiActionDisabled={sectionAi.status === "loading"}
+                        aiActionLabel={sectionAi.status === "loading" ? "AI..." : "AI"}
+                        footer={renderSectionAiFooter(section.id)}
                     >
                         {renderSectionBody(section.id)}
                     </SectionCard>
