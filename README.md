@@ -2,6 +2,24 @@
 
 OnClickCV is a full-stack CV builder for creating professional CVs with live preview, template switching, and export to PDF/Word.
 
+## What's New in V3
+
+V3 introduces AI-assisted CV review on top of the existing editor:
+
+- **Section-level AI suggestions**:
+  - Trigger AI feedback per section from each card
+  - Suggestions are field-targeted and can be **Accepted** or **Dismissed**
+- **Full CV AI review panel**:
+  - Desktop toggle between `Preview` and `AI Review`
+  - Mobile full-screen AI review flow
+- **Job Match mode**:
+  - Paste a job description and compare CV alignment
+  - Returns keyword gaps and role-fit notes
+- **Safety + control**:
+  - AI reads structured `cvData`/`sectionLayout` only (not exported files)
+  - No auto-editing; all changes require explicit user acceptance
+  - Server-side schema validation and guarded patch application
+
 ## What's New in V2.6
 
 V2.6 focuses on output hygiene, completion clarity, and mobile safety:
@@ -102,6 +120,31 @@ npm start
 cd client
 npm start
 ```
+
+### Step 4.1: Enable AI Review (V3)
+
+AI review is feature-flagged and configured via environment files:
+
+`server/.env`
+
+```env
+PORT=4000
+MONGODB_URI=mongodb://localhost:27017/onclickcv
+AI_REVIEW_ENABLED=true
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+OPENAI_MODEL=gpt-5-mini
+```
+
+`client/.env`
+
+```env
+REACT_APP_API_BASE_URL=http://localhost:4000
+REACT_APP_AI_REVIEW_ENABLED=true
+```
+
+Important:
+- Keep `OPENAI_API_KEY` only in `server/.env` (never in `client/.env`).
+- Restart server/client after changing env files.
 
 ### Step 5: Set up Tailwind CSS (Frontend)
 
