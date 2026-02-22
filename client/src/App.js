@@ -1,39 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import CVForm from "./components/CVForm";
 import CVPreview from "./components/CVPreview";
-import PreviewModal from "./components/PreviewModal";
 import AIReviewPanel from "./components/AIReviewPanel";
 import AIReviewModal from "./components/AIReviewModal";
 import MobileSpeedDial from "./components/MobileSpeedDial";
 import { TEMPLATE_OPTIONS } from "./constants/templates";
 import { getDefaultSectionLayout, normalizeSectionLayout } from "./utils/sectionLayout";
 import { buildFilenameSuggestions, resolveExportFilename, sanitizeFilenameBase } from "./utils/exportFilename";
-import { applySuggestionPatch } from "./utils/aiPatch";
+import { applySuggestionPatch, parseSuggestionFieldPath } from "./utils/aiPatch";
+import { consumeSse } from "./utils/aiStream";
 import "./index.css";
 import "react-quill/dist/quill.snow.css";
 
-const THEME_STORAGE_KEY = "onclickcv.theme";
 const API_BASE_URL =
     process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:4000");
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 const isAiReviewEnabled = () => String(process.env.REACT_APP_AI_REVIEW_ENABLED || "").toLowerCase() === "true";
-
-const getInitialTheme = () => {
-    if (typeof window === "undefined") {
-        return "light";
-    }
-
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (storedTheme === "light" || storedTheme === "dark") {
-        return storedTheme;
-    }
-
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        return "dark";
-    }
-
-    return "light";
-};
+const isMobileViewport = () => (typeof window !== "undefined" ? window.innerWidth <= 1023 : false);
 
 const getInitialCvData = () => ({
     name: "",
@@ -53,16 +36,108 @@ const getInitialCvData = () => ({
     sectionLayout: getDefaultSectionLayout()
 });
 
-const isMobileViewport = () => (typeof window !== "undefined" ? window.innerWidth <= 1023 : false);
+const ensureString = (value) => (typeof value === "string" ? value : "");
+const ensureStringArray = (value) => (Array.isArray(value) ? value.map((item) => String(item || "")) : []);
 
-const withSuggestionStatuses = (reviewData = {}) => ({
-    ...reviewData,
-    topFixes: (reviewData.topFixes || []).map((fix, index) => ({
-        ...fix,
-        id: fix.id || `sug_${index + 1}`,
-        status: "pending"
-    }))
+const normalizeCvDataShape = (input = {}) => {
+    const base = getInitialCvData();
+    const next = {
+        ...base,
+        ...input,
+        name: ensureString(input.name),
+        email: ensureString(input.email),
+        phone: ensureString(input.phone),
+        linkedin: ensureString(input.linkedin),
+        summary: ensureString(input.summary),
+        workExperience: ensureStringArray(input.workExperience),
+        volunteerExperience: ensureStringArray(input.volunteerExperience),
+        skills: ensureStringArray(input.skills),
+        projects: ensureStringArray(input.projects),
+        certifications: ensureStringArray(input.certifications),
+        awards: ensureStringArray(input.awards),
+        additionalInfo: ensureString(input.additionalInfo),
+        interests: ensureString(input.interests),
+        education: Array.isArray(input.education)
+            ? input.education.map((entry = {}) => ({
+                  degree: ensureString(entry.degree),
+                  school: ensureString(entry.school),
+                  location: ensureString(entry.location),
+                  startDate: ensureString(entry.startDate),
+                  endDate: ensureString(entry.endDate),
+                  additionalInfo: ensureString(entry.additionalInfo)
+              }))
+            : []
+    };
+
+    next.sectionLayout = normalizeSectionLayout(input.sectionLayout || {}, next);
+    return next;
+};
+
+const getValueFromFieldPath = (target, fieldPath = "") => {
+    const tokens = parseSuggestionFieldPath(fieldPath);
+    if (!tokens.length) {
+        return "";
+    }
+
+    let cursor = target;
+    for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (cursor === null || cursor === undefined) {
+            return "";
+        }
+        cursor = cursor[token];
+    }
+    return typeof cursor === "string" ? cursor : "";
+};
+
+const sectionIdFromFieldPath = (fieldPath = "") => {
+    const root = String(parseSuggestionFieldPath(fieldPath)?.[0] || "");
+    if (root === "summary") return "summary";
+    if (root === "workExperience") return "work";
+    if (root === "volunteerExperience") return "volunteer";
+    if (root === "education") return "education";
+    if (root === "projects") return "projects";
+    if (root === "skills") return "skills";
+    if (root === "certifications") return "certifications";
+    if (root === "awards") return "awards";
+    if (root === "additionalInfo") return "additional-info";
+    return "";
+};
+
+const normalizeSuggestionForClient = (fix = {}, cvData = {}, index = 0) => ({
+    ...fix,
+    id: fix.id || `sug_${index + 1}`,
+    sectionId: fix.sectionId || sectionIdFromFieldPath(fix.fieldPath),
+    issueType: String(fix.issueType || "clarity").toLowerCase(),
+    originalText: String(fix.originalText || getValueFromFieldPath(cvData, fix.fieldPath || "")).trim(),
+    status: fix.status || "pending"
 });
+
+const withSuggestionStatuses = (reviewData = {}, cvData = {}) => ({
+    ...reviewData,
+    topFixes: (reviewData.topFixes || []).map((fix, index) => normalizeSuggestionForClient(fix, cvData, index))
+});
+
+const buildSectionMarkers = (suggestions = []) => {
+    const grouped = {};
+    suggestions.forEach((suggestion) => {
+        const sectionId = suggestion.sectionId || sectionIdFromFieldPath(suggestion.fieldPath);
+        if (!sectionId) {
+            return;
+        }
+        if (!grouped[sectionId]) {
+            grouped[sectionId] = [];
+        }
+        grouped[sectionId].push(suggestion);
+    });
+
+    const markers = {};
+    Object.entries(grouped).forEach(([sectionId, sectionSuggestions]) => {
+        const hasPending = sectionSuggestions.some((item) => item.status === "pending");
+        markers[sectionId] = hasPending ? "hasSuggestions" : "resolved";
+    });
+    return markers;
+};
 
 function App() {
     const aiReviewEnabled = isAiReviewEnabled();
@@ -71,10 +146,9 @@ function App() {
     const [isExporting, setIsExporting] = useState(false);
     const [exportingFormat, setExportingFormat] = useState("");
     const [exportError, setExportError] = useState(null);
-    const [theme, setTheme] = useState(getInitialTheme);
-    const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [showAIReviewModal, setShowAIReviewModal] = useState(false);
     const [isMobile, setIsMobile] = useState(isMobileViewport);
+    const [mobileView, setMobileView] = useState("stack");
     const [desktopRightView, setDesktopRightView] = useState("preview");
     const [exportFileBaseName, setExportFileBaseName] = useState("");
     const [layoutMetrics, setLayoutMetrics] = useState({
@@ -82,7 +156,8 @@ function App() {
         sectionHeights: {},
         pageContentHeight: 1075
     });
-    const [sectionAiState, setSectionAiState] = useState({});
+    const [reviewMarkers, setReviewMarkers] = useState({});
+    const [activeStreamController, setActiveStreamController] = useState(null);
     const [aiReviewState, setAiReviewState] = useState({
         status: "idle",
         error: "",
@@ -92,22 +167,16 @@ function App() {
     });
 
     useEffect(() => {
-        document.documentElement.setAttribute("data-theme", theme);
-        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-    }, [theme]);
-
-    useEffect(() => {
         const update = () => setIsMobile(isMobileViewport());
         update();
-
         window.addEventListener("resize", update);
         return () => window.removeEventListener("resize", update);
     }, []);
 
     useEffect(() => {
         if (!isMobile) {
-            setShowPreviewModal(false);
             setShowAIReviewModal(false);
+            setMobileView("stack");
         }
     }, [isMobile]);
 
@@ -117,6 +186,10 @@ function App() {
             setShowAIReviewModal(false);
         }
     }, [aiReviewEnabled]);
+
+    useEffect(() => () => {
+        activeStreamController?.abort();
+    }, [activeStreamController]);
 
     const normalizedSectionLayout = useMemo(
         () => normalizeSectionLayout(cvData.sectionLayout, cvData),
@@ -152,7 +225,7 @@ function App() {
             const endpoint = apiUrl(`/api/export/${format}`);
             const payload = {
                 cvData: {
-                    ...cvData,
+                    ...normalizeCvDataShape(cvData),
                     sectionLayout: normalizeSectionLayout(cvData.sectionLayout, cvData)
                 },
                 template
@@ -179,7 +252,6 @@ function App() {
             link.click();
             window.URL.revokeObjectURL(url);
         } catch (error) {
-            console.error(error);
             setExportError(`Failed to export ${format.toUpperCase()}: ${error.message}`);
         } finally {
             setIsExporting(false);
@@ -189,13 +261,14 @@ function App() {
 
     const handleSaveCV = async (userId) => {
         try {
+            const normalized = normalizeCvDataShape(cvData);
             const response = await fetch(apiUrl("/api/cv/save"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     cvData: {
-                        ...cvData,
-                        sectionLayout: normalizeSectionLayout(cvData.sectionLayout, cvData)
+                        ...normalized,
+                        sectionLayout: normalizeSectionLayout(normalized.sectionLayout, normalized)
                     },
                     userId
                 })
@@ -204,7 +277,6 @@ function App() {
             if (!response.ok) {
                 throw new Error("Failed to save CV");
             }
-
             alert("CV saved!");
         } catch (err) {
             alert(`Error saving CV: ${err.message}`);
@@ -219,9 +291,9 @@ function App() {
             }
 
             const data = await response.json();
-            const normalized = normalizeSectionLayout(data.sectionLayout, data);
-            setCvData({ ...getInitialCvData(), ...data, sectionLayout: normalized });
-            setSectionAiState({});
+            const normalized = normalizeCvDataShape(data);
+            setCvData(normalized);
+            setReviewMarkers({});
             setAiReviewState((prev) => ({ ...prev, status: "idle", error: "", data: null }));
             alert("CV loaded!");
         } catch (err) {
@@ -229,161 +301,49 @@ function App() {
         }
     };
 
-    const toggleTheme = () => {
-        setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
-    };
-
     const handleLayoutMetricsChange = useCallback((metrics) => {
         setLayoutMetrics(metrics);
     }, []);
 
-    const requestAIReview = useCallback(
-        async (payload) => {
-            const response = await fetch(apiUrl("/api/ai/review"), {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const detail = Array.isArray(data?.details) && data.details.length > 0 ? String(data.details[0]) : "";
-                const message = detail ? `${data?.error || "AI review request failed."} ${detail}` : (data?.error || "AI review request failed.");
-                throw new Error(message);
-            }
-
-            return data;
-        },
-        []
-    );
-
-    const handleRequestSectionAi = useCallback(
-        async (sectionId) => {
-            if (!aiReviewEnabled) {
-                return;
-            }
-
-            if (sectionId === "personal") {
-                setSectionAiState((prev) => ({
-                    ...prev,
-                    [sectionId]: {
-                        ...(prev[sectionId] || {}),
-                        status: "error",
-                        error: "AI suggestions are not available for Personal Info.",
-                        hasFetched: true,
-                        isExpanded: true,
-                        suggestions: []
-                    }
-                }));
-                return;
-            }
-
-            setSectionAiState((prev) => ({
-                ...prev,
-                [sectionId]: {
-                    ...(prev[sectionId] || {}),
-                    status: "loading",
-                    error: "",
-                    hasFetched: true,
-                    isExpanded: !isMobile
-                }
-            }));
-
-            try {
-                const responseData = await requestAIReview({
-                    mode: "section",
-                    sectionId,
-                    cvData,
-                    sectionLayout: normalizedSectionLayout
-                });
-
-                setSectionAiState((prev) => ({
-                    ...prev,
-                    [sectionId]: {
-                        ...(prev[sectionId] || {}),
-                        status: "ready",
-                        error: "",
-                        hasFetched: true,
-                        isExpanded: !isMobile,
-                        suggestions: withSuggestionStatuses(responseData).topFixes || []
-                    }
-                }));
-            } catch (error) {
-                setSectionAiState((prev) => ({
-                    ...prev,
-                    [sectionId]: {
-                        ...(prev[sectionId] || {}),
-                        status: "error",
-                        error: error.message,
-                        hasFetched: true,
-                        isExpanded: true
-                    }
-                }));
-            }
-        },
-        [aiReviewEnabled, cvData, isMobile, normalizedSectionLayout, requestAIReview]
-    );
-
-    const markSectionSuggestion = useCallback((sectionId, suggestionId, status) => {
-        setSectionAiState((prev) => {
-            const current = prev[sectionId] || {};
-            return {
-                ...prev,
-                [sectionId]: {
-                    ...current,
-                    suggestions: (current.suggestions || []).map((suggestion) =>
-                        suggestion.id === suggestionId ? { ...suggestion, status } : suggestion
-                    )
-                }
-            };
+    const requestAIReview = useCallback(async (payload) => {
+        const response = await fetch(apiUrl("/api/ai/review"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
         });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = Array.isArray(data?.details) && data.details.length > 0 ? String(data.details[0]) : "";
+            const message = detail ? `${data?.error || "AI review request failed."} ${detail}` : (data?.error || "AI review request failed.");
+            throw new Error(message);
+        }
+
+        return data;
     }, []);
 
-    const handleAcceptSectionSuggestion = useCallback(
-        (sectionId, suggestionId) => {
-            const suggestion = (sectionAiState?.[sectionId]?.suggestions || []).find((entry) => entry.id === suggestionId);
-            if (!suggestion) {
-                return;
-            }
+    const requestAIReviewStream = useCallback(async (payload, onEvent, signal) => {
+        const response = await fetch(apiUrl("/api/ai/review/stream"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal
+        });
 
-            setCvData((prev) => {
-                const patchResult = applySuggestionPatch(prev, suggestion.fieldPath, suggestion.suggestedText);
-                if (!patchResult.ok) {
-                    setSectionAiState((statePrev) => ({
-                        ...statePrev,
-                        [sectionId]: {
-                            ...(statePrev[sectionId] || {}),
-                            error: patchResult.error || "Failed to apply suggestion.",
-                            status: "error",
-                            isExpanded: true
-                        }
-                    }));
-                    return prev;
-                }
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            const detail = Array.isArray(data?.details) && data.details.length > 0 ? String(data.details[0]) : "";
+            const message = detail ? `${data?.error || "AI review stream failed."} ${detail}` : (data?.error || "AI review stream failed.");
+            throw new Error(message);
+        }
 
-                return patchResult.data;
-            });
+        await consumeSse(response, {
+            onEvent
+        }, signal);
+    }, []);
 
-            markSectionSuggestion(sectionId, suggestionId, "accepted");
-        },
-        [markSectionSuggestion, sectionAiState]
-    );
-
-    const handleDismissSectionSuggestion = useCallback(
-        (sectionId, suggestionId) => {
-            markSectionSuggestion(sectionId, suggestionId, "dismissed");
-        },
-        [markSectionSuggestion]
-    );
-
-    const handleToggleSectionSuggestions = useCallback((sectionId) => {
-        setSectionAiState((prev) => ({
-            ...prev,
-            [sectionId]: {
-                ...(prev[sectionId] || {}),
-                isExpanded: !prev[sectionId]?.isExpanded
-            }
-        }));
+    const refreshMarkersFromSuggestions = useCallback((suggestions = []) => {
+        setReviewMarkers(buildSectionMarkers(suggestions));
     }, []);
 
     const handleRunAIReview = useCallback(async () => {
@@ -391,96 +351,239 @@ function App() {
             return;
         }
 
-        setAiReviewState((prev) => ({
-            ...prev,
-            status: "loading",
-            error: ""
-        }));
-
-        try {
-            const mode = aiReviewState.mode || "full";
-            if (mode === "job-match" && !String(aiReviewState.jobDescription || "").trim()) {
-                setAiReviewState((prev) => ({
-                    ...prev,
-                    status: "error",
-                    error: "Job description is required for Job Match mode."
-                }));
-                return;
-            }
-            const payload = {
-                mode,
-                cvData,
-                sectionLayout: normalizedSectionLayout
-            };
-
-            if (mode === "job-match") {
-                payload.jobDescription = aiReviewState.jobDescription || "";
-            }
-
-            const responseData = await requestAIReview(payload);
-            setAiReviewState((prev) => ({
-                ...prev,
-                status: "ready",
-                error: "",
-                data: withSuggestionStatuses(responseData)
-            }));
-        } catch (error) {
+        const mode = aiReviewState.mode || "full";
+        if (mode === "job-match" && !String(aiReviewState.jobDescription || "").trim()) {
             setAiReviewState((prev) => ({
                 ...prev,
                 status: "error",
-                error: error.message
+                error: "Job description is required for Job Match mode."
             }));
+            return;
         }
-    }, [aiReviewEnabled, aiReviewState.jobDescription, aiReviewState.mode, cvData, normalizedSectionLayout, requestAIReview]);
 
-    const markFullReviewSuggestion = useCallback((suggestionId, status) => {
+        const payload = {
+            mode,
+            cvData,
+            sectionLayout: normalizedSectionLayout
+        };
+        if (mode === "job-match") {
+            payload.jobDescription = aiReviewState.jobDescription || "";
+        }
+
+        activeStreamController?.abort();
+        const controller = new AbortController();
+        setActiveStreamController(controller);
+        setReviewMarkers({});
         setAiReviewState((prev) => ({
             ...prev,
-            data: prev.data
-                ? {
-                      ...prev.data,
-                      topFixes: (prev.data.topFixes || []).map((suggestion) =>
-                          suggestion.id === suggestionId ? { ...suggestion, status } : suggestion
-                      )
-                  }
-                : prev.data
+            status: "loading",
+            error: "",
+            data: null
         }));
-    }, []);
 
-    const handleAcceptFullSuggestion = useCallback(
-        (suggestion) => {
-            if (!suggestion) {
+        let completed = false;
+        try {
+            await requestAIReviewStream(
+                payload,
+                (event, eventPayload) => {
+                    if (event === "start") {
+                        setAiReviewState((prev) => ({
+                            ...prev,
+                            status: "streaming",
+                            error: "",
+                            data: prev.data || {
+                                mode,
+                                generatedAt: eventPayload.generatedAt || new Date().toISOString(),
+                                overall: {
+                                    tier: "Fair",
+                                    score: 0,
+                                    summary: ""
+                                },
+                                topFixes: [],
+                                bySection: {}
+                            }
+                        }));
+                        return;
+                    }
+
+                    if (event === "overall") {
+                        setAiReviewState((prev) => ({
+                            ...prev,
+                            status: "streaming",
+                            error: "",
+                            data: {
+                                mode,
+                                generatedAt: eventPayload.generatedAt || new Date().toISOString(),
+                                overall: eventPayload.overall || prev.data?.overall || { tier: "Fair", score: 0, summary: "" },
+                                topFixes: prev.data?.topFixes || [],
+                                bySection: eventPayload.bySection || {},
+                                ...(mode === "job-match" ? { jobMatch: eventPayload.jobMatch || null } : {})
+                            }
+                        }));
+                        return;
+                    }
+
+                    if (event === "suggestion") {
+                        setAiReviewState((prev) => {
+                            const suggestion = normalizeSuggestionForClient(
+                                eventPayload?.suggestion || {},
+                                cvData,
+                                (prev.data?.topFixes || []).length
+                            );
+                            const nextTopFixes = [...(prev.data?.topFixes || []), suggestion];
+                            refreshMarkersFromSuggestions(nextTopFixes);
+                            return {
+                                ...prev,
+                                status: "streaming",
+                                data: {
+                                    ...(prev.data || {}),
+                                    topFixes: nextTopFixes
+                                }
+                            };
+                        });
+                        return;
+                    }
+
+                    if (event === "complete") {
+                        completed = true;
+                        setAiReviewState((prev) => ({
+                            ...prev,
+                            status: "ready",
+                            error: ""
+                        }));
+                        return;
+                    }
+
+                    if (event === "error") {
+                        throw new Error(eventPayload?.error || "AI review stream failed.");
+                    }
+                },
+                controller.signal
+            );
+
+            if (!completed) {
+                throw new Error("AI review stream ended before completion.");
+            }
+        } catch (error) {
+            if (error?.name === "AbortError") {
                 return;
             }
 
-            setCvData((prev) => {
-                const patchResult = applySuggestionPatch(prev, suggestion.fieldPath, suggestion.suggestedText);
-                if (!patchResult.ok) {
-                    setAiReviewState((statePrev) => ({
-                        ...statePrev,
-                        status: "error",
-                        error: patchResult.error || "Failed to apply suggestion."
-                    }));
-                    return prev;
+            try {
+                const responseData = await requestAIReview(payload);
+                const normalizedResponse = withSuggestionStatuses(responseData, cvData);
+                setAiReviewState((prev) => ({
+                    ...prev,
+                    status: "ready",
+                    error: "",
+                    data: normalizedResponse
+                }));
+                refreshMarkersFromSuggestions(normalizedResponse.topFixes || []);
+            } catch (fallbackError) {
+                setAiReviewState((prev) => ({
+                    ...prev,
+                    status: "error",
+                    error: fallbackError.message || error.message
+                }));
+            }
+        } finally {
+            setActiveStreamController((current) => (current === controller ? null : current));
+        }
+    }, [
+        activeStreamController,
+        aiReviewEnabled,
+        aiReviewState.jobDescription,
+        aiReviewState.mode,
+        cvData,
+        normalizedSectionLayout,
+        refreshMarkersFromSuggestions,
+        requestAIReview,
+        requestAIReviewStream
+    ]);
+
+    const markSuggestionStatus = useCallback((suggestionId, status) => {
+        setAiReviewState((prev) => {
+            if (!prev.data) {
+                return prev;
+            }
+
+            const nextTopFixes = (prev.data.topFixes || []).map((suggestion) =>
+                suggestion.id === suggestionId ? { ...suggestion, status } : suggestion
+            );
+            refreshMarkersFromSuggestions(nextTopFixes);
+            return {
+                ...prev,
+                data: {
+                    ...prev.data,
+                    topFixes: nextTopFixes
                 }
+            };
+        });
+    }, [refreshMarkersFromSuggestions]);
 
-                return patchResult.data;
-            });
+    const handleAcceptFullSuggestion = useCallback((suggestion) => {
+        if (!suggestion) {
+            return;
+        }
 
-            markFullReviewSuggestion(suggestion.id, "accepted");
-        },
-        [markFullReviewSuggestion]
-    );
-
-    const handleDismissFullSuggestion = useCallback(
-        (suggestion) => {
-            if (!suggestion) {
-                return;
+        setCvData((prev) => {
+            const patchResult = applySuggestionPatch(prev, suggestion.fieldPath, suggestion.suggestedText);
+            if (!patchResult.ok) {
+                setAiReviewState((statePrev) => ({
+                    ...statePrev,
+                    status: "error",
+                    error: patchResult.error || "Failed to apply suggestion."
+                }));
+                return prev;
             }
-            markFullReviewSuggestion(suggestion.id, "dismissed");
-        },
-        [markFullReviewSuggestion]
-    );
+
+            return patchResult.data;
+        });
+
+        markSuggestionStatus(suggestion.id, "accepted");
+    }, [markSuggestionStatus]);
+
+    const handleDismissFullSuggestion = useCallback((suggestion) => {
+        if (!suggestion) {
+            return;
+        }
+        markSuggestionStatus(suggestion.id, "dismissed");
+    }, [markSuggestionStatus]);
+
+    const handleApplyAllSuggestions = useCallback(() => {
+        const pending = (aiReviewState.data?.topFixes || []).filter((item) => item.status === "pending");
+        if (pending.length === 0) {
+            return;
+        }
+
+        setCvData((prev) => {
+            let next = prev;
+            pending.forEach((suggestion) => {
+                const patchResult = applySuggestionPatch(next, suggestion.fieldPath, suggestion.suggestedText);
+                if (patchResult.ok) {
+                    next = patchResult.data;
+                }
+            });
+            return next;
+        });
+
+        setAiReviewState((prev) => {
+            if (!prev.data) {
+                return prev;
+            }
+            const nextTopFixes = (prev.data.topFixes || []).map((suggestion) =>
+                suggestion.status === "pending" ? { ...suggestion, status: "accepted" } : suggestion
+            );
+            refreshMarkersFromSuggestions(nextTopFixes);
+            return {
+                ...prev,
+                data: {
+                    ...prev.data,
+                    topFixes: nextTopFixes
+                }
+            };
+        });
+    }, [aiReviewState.data?.topFixes, refreshMarkersFromSuggestions]);
 
     const openAIReview = useCallback(() => {
         if (!aiReviewEnabled) {
@@ -495,60 +598,50 @@ function App() {
         setDesktopRightView("ai");
     }, [aiReviewEnabled, isMobile]);
 
+    const hasPendingSuggestions = Object.values(reviewMarkers).some((value) => value === "hasSuggestions");
+
     return (
         <div className="app-shell">
             <header className="app-header no-print">
                 <div className="my-container app-header-inner">
                     <h1 className="app-title">OnClickCV</h1>
-                    <div className="header-actions">
-                        <button
-                            type="button"
-                            onClick={toggleTheme}
-                            className="theme-toggle-btn"
-                            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-                        >
-                            {theme === "light" ? "Dark Mode" : "Light Mode"}
-                        </button>
-                    </div>
                 </div>
             </header>
 
             <main className="my-container">
-                <div className="app-content">
-                    <div data-testid="form-panel" className="app-form-panel">
-                        <CVForm
-                            cvData={cvData}
-                            setCvData={setCvData}
-                            sectionLayout={normalizedSectionLayout}
-                            setSectionLayout={updateSectionLayout}
-                            template={template}
-                            setTemplate={setTemplate}
-                            templateOptions={TEMPLATE_OPTIONS}
-                            onExport={handleExport}
-                            isExporting={isExporting}
-                            exportingFormat={exportingFormat}
-                            exportError={exportError}
-                            exportFileBaseName={exportFileBaseName}
-                            onExportFileBaseNameChange={setExportFileBaseName}
-                            exportFileSuggestions={exportFileSuggestions}
-                            onSave={handleSaveCV}
-                            onLoad={handleLoadCV}
-                            layoutMetrics={layoutMetrics}
-                            isMobile={isMobile}
-                            aiEnabled={aiReviewEnabled}
-                            sectionAiState={sectionAiState}
-                            onRequestSectionAi={handleRequestSectionAi}
-                            onAcceptSectionSuggestion={handleAcceptSectionSuggestion}
-                            onDismissSectionSuggestion={handleDismissSectionSuggestion}
-                            onToggleSectionSuggestions={handleToggleSectionSuggestions}
-                            onOpenAIReview={openAIReview}
-                            aiReviewStatus={aiReviewState.status}
-                        />
-                    </div>
+                <div className={`app-content ${isMobile ? "mobile-layout" : ""}`}>
+                    {(!isMobile || mobileView === "stack") ? (
+                        <div data-testid="form-panel" className="app-form-panel">
+                            <CVForm
+                                cvData={cvData}
+                                setCvData={setCvData}
+                                sectionLayout={normalizedSectionLayout}
+                                setSectionLayout={updateSectionLayout}
+                                template={template}
+                                setTemplate={setTemplate}
+                                templateOptions={TEMPLATE_OPTIONS}
+                                onExport={handleExport}
+                                isExporting={isExporting}
+                                exportingFormat={exportingFormat}
+                                exportError={exportError}
+                                exportFileBaseName={exportFileBaseName}
+                                onExportFileBaseNameChange={setExportFileBaseName}
+                                exportFileSuggestions={exportFileSuggestions}
+                                onSave={handleSaveCV}
+                                onLoad={handleLoadCV}
+                                layoutMetrics={layoutMetrics}
+                                isMobile={isMobile}
+                                aiEnabled={aiReviewEnabled}
+                                reviewMarkers={reviewMarkers}
+                                onOpenAIReview={openAIReview}
+                                aiReviewStatus={aiReviewState.status}
+                            />
+                        </div>
+                    ) : null}
 
-                    {!isMobile ? (
+                    {(!isMobile || mobileView === "preview") ? (
                         <div data-testid="preview-panel" className="app-preview-panel">
-                            {aiReviewEnabled ? (
+                            {!isMobile && aiReviewEnabled ? (
                                 <div className="preview-panel-tabs no-print">
                                     <button
                                         type="button"
@@ -567,7 +660,7 @@ function App() {
                                 </div>
                             ) : null}
 
-                            {aiReviewEnabled && desktopRightView === "ai" ? (
+                            {!isMobile && aiReviewEnabled && desktopRightView === "ai" ? (
                                 <AIReviewPanel
                                     reviewState={aiReviewState}
                                     onRunReview={handleRunAIReview}
@@ -587,6 +680,7 @@ function App() {
                                     }
                                     onAcceptSuggestion={handleAcceptFullSuggestion}
                                     onDismissSuggestion={handleDismissFullSuggestion}
+                                    onApplyAll={handleApplyAllSuggestions}
                                 />
                             ) : (
                                 <CVPreview
@@ -602,41 +696,14 @@ function App() {
             </main>
 
             {isMobile ? (
-                aiReviewEnabled ? (
-                    <MobileSpeedDial
-                        aiEnabled={aiReviewEnabled}
-                        onOpenPreview={() => setShowPreviewModal(true)}
-                        onOpenAI={() => setShowAIReviewModal(true)}
-                    />
-                ) : (
-                    <button
-                        type="button"
-                        className="preview-fab no-print"
-                        onClick={() => setShowPreviewModal(true)}
-                        aria-label="Open CV preview"
-                    >
-                        Preview
-                    </button>
-                )
-            ) : null}
-
-            <PreviewModal
-                isOpen={isMobile && showPreviewModal}
-                onClose={() => setShowPreviewModal(false)}
-                onExport={handleExport}
-                isExporting={isExporting}
-                exportingFormat={exportingFormat}
-                exportFileBaseName={exportFileBaseName}
-                onExportFileBaseNameChange={setExportFileBaseName}
-                exportFileSuggestions={exportFileSuggestions}
-            >
-                <CVPreview
-                    cvData={cvData}
-                    sectionLayout={normalizedSectionLayout}
-                    template={template}
-                    onLayoutMetricsChange={handleLayoutMetricsChange}
+                <MobileSpeedDial
+                    aiEnabled={aiReviewEnabled}
+                    activeView={mobileView}
+                    onChangeView={setMobileView}
+                    onOpenAI={() => setShowAIReviewModal(true)}
+                    hasPendingSuggestions={hasPendingSuggestions}
                 />
-            </PreviewModal>
+            ) : null}
 
             <AIReviewModal isOpen={isMobile && showAIReviewModal} onClose={() => setShowAIReviewModal(false)}>
                 <AIReviewPanel
@@ -658,6 +725,7 @@ function App() {
                     }
                     onAcceptSuggestion={handleAcceptFullSuggestion}
                     onDismissSuggestion={handleDismissFullSuggestion}
+                    onApplyAll={handleApplyAllSuggestions}
                 />
             </AIReviewModal>
         </div>

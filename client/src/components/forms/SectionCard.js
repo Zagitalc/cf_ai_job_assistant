@@ -10,14 +10,9 @@ const SectionCard = ({
     onDragOver,
     onDrop,
     isDragging,
-    statusLabel,
+    subtitle,
     statusTone,
-    sectionCategoryLabel,
-    showAiAction,
-    onAiClick,
-    aiActionDisabled,
-    aiActionLabel,
-    footer,
+    reviewMarker,
     children
 }) => (
     <section
@@ -33,23 +28,16 @@ const SectionCard = ({
                 <span className={`drag-handle ${canDrag ? "" : "drag-disabled"}`} aria-hidden="true">
                     ≡
                 </span>
-                <span className="card-stack-title">{section.title}</span>
+                <div className="card-title-meta">
+                    <span className="card-stack-title">{section.title}</span>
+                    {subtitle ? <span className="card-stack-subtitle">{subtitle}</span> : null}
+                </div>
                 {section.pinned ? <span className="card-pin" title="Pinned">📌</span> : null}
-                {sectionCategoryLabel ? <span className="card-type-chip">{sectionCategoryLabel}</span> : null}
             </div>
             <div className="card-stack-actions">
-                {statusLabel ? <span className="card-status-chip">{statusLabel}</span> : null}
                 <span className={`card-status-dot tone-${statusTone || "neutral"}`} aria-hidden="true" />
-                {showAiAction ? (
-                    <button
-                        type="button"
-                        onClick={() => onAiClick && onAiClick(section.id)}
-                        className="card-ai-btn"
-                        disabled={aiActionDisabled}
-                    >
-                        {aiActionLabel || "AI"}
-                    </button>
-                ) : null}
+                {reviewMarker === "hasSuggestions" ? <span className="card-review-dot pending" aria-hidden="true" /> : null}
+                {reviewMarker === "resolved" ? <span className="card-review-dot resolved" aria-hidden="true" /> : null}
                 {section.isComplex ? (
                     <button type="button" onClick={() => onOpenComplex(section.id)} className="card-action-btn">
                         Edit
@@ -62,8 +50,6 @@ const SectionCard = ({
             </div>
         </div>
         {!section.isComplex && isOpen ? <div className="cv-section-body">{children}</div> : null}
-        {section.isComplex ? <div className="card-complex-hint">Open dedicated editor for this section.</div> : null}
-        {footer ? <div className="cv-section-footer">{footer}</div> : null}
     </section>
 );
 

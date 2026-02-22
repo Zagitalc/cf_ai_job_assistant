@@ -1,5 +1,50 @@
-import React from "react";
-import AISuggestionList from "./AISuggestionList";
+import React, { useMemo, useState } from "react";
+import { getWordDiffSegments } from "../utils/textDiff";
+
+const ISSUE_LABELS = {
+    impact: "Impact",
+    clarity: "Clarity",
+    ats: "ATS",
+    length: "Length"
+};
+
+const sortByIssueOrder = (left = "", right = "") => {
+    const order = ["impact", "clarity", "ats", "length"];
+    return order.indexOf(left) - order.indexOf(right);
+};
+
+const DiffText = ({ originalText, suggestedText }) => {
+    const segments = useMemo(
+        () => getWordDiffSegments(originalText || "", suggestedText || ""),
+        [originalText, suggestedText]
+    );
+
+    return (
+        <p className="ai-diff-line">
+            {segments.map((segment, index) => {
+                if (segment.type === "add") {
+                    return (
+                        <mark key={`${segment.type}-${segment.text}-${index}`} className="ai-diff-add">
+                            {segment.text}
+                        </mark>
+                    );
+                }
+                if (segment.type === "remove") {
+                    return (
+                        <span key={`${segment.type}-${segment.text}-${index}`} className="ai-diff-remove">
+                            {segment.text}
+                        </span>
+                    );
+                }
+                return (
+                    <span key={`${segment.type}-${segment.text}-${index}`} className="ai-diff-same">
+                        {segment.text}
+                    </span>
+                );
+            })}
+        </p>
+    );
+};
 
 const AIReviewPanel = ({
     reviewState,
@@ -7,19 +52,38 @@ const AIReviewPanel = ({
     onModeChange,
     onJobDescriptionChange,
     onAcceptSuggestion,
-    onDismissSuggestion
+    onDismissSuggestion,
+    onApplyAll
 }) => {
+    const [confirmApplyAll, setConfirmApplyAll] = useState(false);
     const mode = reviewState?.mode || "full";
-    const isLoading = reviewState?.status === "loading";
-    const hasError = reviewState?.status === "error";
     const data = reviewState?.data || null;
+    const status = reviewState?.status || "idle";
+    const isLoading = status === "loading" || status === "streaming";
+    const hasError = status === "error";
+
+    const pendingSuggestions = (data?.topFixes || []).filter((item) => item.status !== "dismissed" && item.status !== "accepted");
+    const groupedSuggestions = useMemo(() => {
+        const grouped = {};
+        (data?.topFixes || []).forEach((suggestion) => {
+            const type = suggestion.issueType || "clarity";
+            if (!grouped[type]) {
+                grouped[type] = [];
+            }
+            grouped[type].push(suggestion);
+        });
+        return grouped;
+    }, [data?.topFixes]);
+
+    const issueTypes = Object.keys(groupedSuggestions).sort(sortByIssueOrder);
 
     return (
-        <section className="ai-review-panel" aria-label="AI review panel">
+        <section className="ai-review-panel glass-sheet" aria-label="AI review panel">
+            <div className="ai-sheet-handle" />
             <div className="ai-panel-header">
                 <div>
-                    <h2>AI Review</h2>
-                    <p>Get targeted suggestions based on your structured CV data.</p>
+                    <h2>Optimization Report</h2>
+                    <p>{pendingSuggestions.length > 0 ? `${pendingSuggestions.length} improvements found` : "Run a review to get section-level upgrades."}</p>
                 </div>
                 <button type="button" className="primary-btn" onClick={onRunReview} disabled={isLoading}>
                     {isLoading ? "Reviewing..." : "Run Review"}
@@ -46,8 +110,8 @@ const AIReviewPanel = ({
                         id="job-description"
                         value={reviewState?.jobDescription || ""}
                         onChange={(event) => onJobDescriptionChange && onJobDescriptionChange(event.target.value)}
-                        placeholder="Paste the target job description..."
-                        rows={6}
+                        placeholder="Paste a target job description..."
+                        rows={5}
                         className="form-textarea"
                     />
                 </div>
@@ -55,54 +119,94 @@ const AIReviewPanel = ({
 
             {hasError ? <div className="form-error">{reviewState.error}</div> : null}
 
-            {data ? (
+            {data && issueTypes.length > 0 ? (
                 <div className="ai-review-results">
-                    <div className="ai-overall-card">
-                        <div className="ai-overall-score">{Number(data.overall?.score || 0).toFixed(0)}</div>
-                        <div>
-                            <div className="ai-overall-tier">{data.overall?.tier || "N/A"}</div>
-                            <p>{data.overall?.summary || ""}</p>
-                        </div>
-                    </div>
-
-                    <h3 className="ai-section-heading">Top Fixes</h3>
-                    <AISuggestionList
-                        suggestions={data.topFixes || []}
-                        onAccept={onAcceptSuggestion}
-                        onDismiss={onDismissSuggestion}
-                        emptyLabel="No high-priority fixes."
-                    />
-
-                    {mode === "job-match" && data.jobMatch ? (
-                        <div className="ai-jobmatch-results">
-                            <h3 className="ai-section-heading">Job Match</h3>
-                            <div className="ai-jobmatch-score">Match Score: {Number(data.jobMatch.score || 0).toFixed(0)}</div>
-                            <div className="ai-jobmatch-grid">
-                                <div>
-                                    <h4>Missing Keywords</h4>
-                                    <ul>
-                                        {(data.jobMatch.missingKeywords || []).map((item) => (
-                                            <li key={item}>{item}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4>Matched Keywords</h4>
-                                    <ul>
-                                        {(data.jobMatch.matchedKeywords || []).map((item) => (
-                                            <li key={item}>{item}</li>
-                                        ))}
-                                    </ul>
-                                </div>
+                    {issueTypes.map((type) => (
+                        <div key={type} className="ai-group">
+                            <div className="ai-group-head">
+                                <h3>{ISSUE_LABELS[type] || "Suggestions"}</h3>
+                                <span>{groupedSuggestions[type].length} Suggestions</span>
+                            </div>
+                            <div className="ai-group-list">
+                                {groupedSuggestions[type].map((suggestion) => (
+                                    <article key={suggestion.id} className={`ai-suggestion-sheet-card status-${suggestion.status || "pending"}`}>
+                                        <div className="ai-suggestion-card-head">
+                                            <span className="ai-issue-pill">{ISSUE_LABELS[type] || "Issue"}</span>
+                                            <button
+                                                type="button"
+                                                className="dismiss-icon-btn"
+                                                onClick={() => onDismissSuggestion && onDismissSuggestion(suggestion)}
+                                                disabled={suggestion.status === "dismissed"}
+                                                aria-label="Dismiss suggestion"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                        <h4>{suggestion.title || "Suggestion"}</h4>
+                                        <DiffText originalText={suggestion.originalText} suggestedText={suggestion.suggestedText} />
+                                        <p className="ai-suggestion-reason">{suggestion.reason}</p>
+                                        <div className="ai-suggestion-actions">
+                                            <button
+                                                type="button"
+                                                className="ai-action-btn"
+                                                onClick={() => onAcceptSuggestion && onAcceptSuggestion(suggestion)}
+                                                disabled={suggestion.status === "accepted"}
+                                            >
+                                                {suggestion.status === "accepted" ? "Applied" : "Apply Change"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="ai-action-btn ghost"
+                                                onClick={() => onDismissSuggestion && onDismissSuggestion(suggestion)}
+                                                disabled={suggestion.status === "dismissed"}
+                                            >
+                                                {suggestion.status === "dismissed" ? "Dismissed" : "Dismiss"}
+                                            </button>
+                                        </div>
+                                    </article>
+                                ))}
                             </div>
                         </div>
-                    ) : null}
+                    ))}
                 </div>
             ) : (
-                <div className="ai-empty-state">Run AI review to see full feedback and prioritized fixes.</div>
+                <div className="ai-empty-state warm">
+                    Your CV looks good to review. Run AI Review to get targeted rewrites by section.
+                </div>
             )}
+
+            {data ? (
+                <div className="ai-sheet-footer">
+                    {confirmApplyAll ? (
+                        <button
+                            type="button"
+                            className="primary-btn"
+                            onClick={() => {
+                                setConfirmApplyAll(false);
+                                onApplyAll && onApplyAll();
+                            }}
+                            disabled={pendingSuggestions.length === 0}
+                        >
+                            Confirm Apply All ({pendingSuggestions.length})
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className="secondary-btn"
+                            onClick={() => setConfirmApplyAll(true)}
+                            disabled={pendingSuggestions.length === 0}
+                        >
+                            Apply All ({pendingSuggestions.length})
+                        </button>
+                    )}
+                    <button type="button" className="text-btn" onClick={() => setConfirmApplyAll(false)}>
+                        Dismiss
+                    </button>
+                </div>
+            ) : null}
         </section>
     );
 };
 
 export default AIReviewPanel;
+

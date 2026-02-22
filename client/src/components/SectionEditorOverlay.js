@@ -10,7 +10,7 @@ const SectionEditorOverlay = ({ title, isMobile, onClose, children }) => (
         <div className="section-editor-header">
             <div>
                 <h3>{title}</h3>
-                <p className="section-editor-subtitle">Dedicated editor</p>
+                <p className="section-editor-subtitle">Focused editor</p>
             </div>
             <button type="button" className="section-editor-close" onClick={onClose}>
                 Done

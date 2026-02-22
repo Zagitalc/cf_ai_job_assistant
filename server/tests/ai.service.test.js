@@ -114,6 +114,8 @@ describe("aiReviewService", () => {
 
         expect(result.mode).toBe("section");
         expect(result.topFixes.length).toBeGreaterThanOrEqual(2);
+        expect(result.topFixes[0].issueType).toBeTruthy();
+        expect(result.topFixes[0].originalText).toBeTruthy();
 
         const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
         const prompt = body.messages[1].content;
@@ -173,6 +175,10 @@ describe("aiReviewService", () => {
         expect(result.overall).toBeDefined();
         expect(result.mode).toBe("full");
         expect(Array.isArray(result.topFixes)).toBe(true);
+        if (result.topFixes.length > 0) {
+            expect(result.topFixes[0].issueType).toBeTruthy();
+            expect(result.topFixes[0].originalText).toBeTruthy();
+        }
     });
 
     it("throws AiReviewError when response is non-JSON across retries", async () => {

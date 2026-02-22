@@ -1,6 +1,7 @@
 const {
     AI_SUPPORTED_SECTION_IDS,
     CONTENT_SECTION_IDS,
+    ISSUE_TYPES,
     RESPONSE_JSON_SCHEMA,
     getRootField,
     hasExistingStringPath,
@@ -31,6 +32,8 @@ const SECTION_TITLES = {
     awards: "Awards",
     "additional-info": "Additional Info"
 };
+
+const ISSUE_TYPE_FALLBACK = "clarity";
 
 const readMessageText = (payload = {}) => {
     if (typeof payload === "string") {
@@ -116,6 +119,28 @@ const getValueByPath = (target, fieldPath = "") => {
     }
 
     return typeof cursor === "string" ? cursor : "";
+};
+
+const inferIssueType = (rawSuggestion = {}) => {
+    const direct = String(rawSuggestion?.issueType || rawSuggestion?.category || rawSuggestion?.type || "")
+        .trim()
+        .toLowerCase();
+    if (ISSUE_TYPES.includes(direct)) {
+        return direct;
+    }
+
+    const hint = `${rawSuggestion?.title || ""} ${rawSuggestion?.reason || ""} ${rawSuggestion?.issue || ""}`.toLowerCase();
+    if (hint.includes("ats") || hint.includes("keyword")) {
+        return "ats";
+    }
+    if (hint.includes("length") || hint.includes("long") || hint.includes("concise")) {
+        return "length";
+    }
+    if (hint.includes("impact") || hint.includes("metric") || hint.includes("result")) {
+        return "impact";
+    }
+
+    return ISSUE_TYPE_FALLBACK;
 };
 
 const sectionFromFieldPath = (fieldPath = "") => {
@@ -228,12 +253,15 @@ const normalizeSuggestion = (rawSuggestion, index, requestInput) => {
     const fallbackSuggestedText = existingText
         ? `${existingText} (refine with scope, action verbs, and measurable impact).`
         : "Refine this content with specific actions, context, and measurable outcomes.";
+    const originalText = String(rawSuggestion?.originalText || rawSuggestion?.sourceText || existingText).trim();
 
     return {
         id: String(rawSuggestion?.id || `sug_${index + 1}`),
         priority: Number.isFinite(rawSuggestion?.priority) ? Math.max(1, Math.round(rawSuggestion.priority)) : index + 1,
         sectionId: safeSection,
         fieldPath: safeFieldPath,
+        issueType: inferIssueType(rawSuggestion),
+        originalText,
         reason: String(rawSuggestion?.reason || rawSuggestion?.issue || "This change increases clarity and recruiter impact.").trim(),
         suggestedText: String(rawSuggestion?.suggestedText || rawSuggestion?.suggestion || fallbackSuggestedText).trim(),
         title: String(rawSuggestion?.title || `Improve ${SECTION_TITLES[safeSection] || safeSection}`).trim()
@@ -268,6 +296,8 @@ const enforceSuggestionCardinality = (topFixes, requestInput) => {
             priority: synthesized.length + 1,
             sectionId: requestInput.sectionId,
             fieldPath: targetPath,
+            issueType: ISSUE_TYPE_FALLBACK,
+            originalText: getValueByPath(requestInput.cvData, targetPath),
             reason: "Focused edits improve readability and impact.",
             suggestedText: "Refine this content with stronger action verbs and measurable outcomes.",
             title: synthesized.length === 0 ? "Strengthen phrasing" : "Add measurable impact"
@@ -491,12 +521,14 @@ const normalizeBySection = (bySection = {}, requestInput = {}) => {
     return normalized;
 };
 
-const normalizeTopFixes = (topFixes = []) =>
+const normalizeTopFixes = (topFixes = [], requestInput = {}) =>
     (topFixes || []).map((fix, index) => ({
         id: fix.id || `sug_${index + 1}`,
         priority: Number.isFinite(fix.priority) ? Math.max(1, Math.round(fix.priority)) : index + 1,
         sectionId: fix.sectionId,
         fieldPath: fix.fieldPath,
+        issueType: inferIssueType(fix),
+        originalText: String(fix.originalText || getValueByPath(requestInput.cvData || {}, fix.fieldPath || "")).trim(),
         reason: String(fix.reason || "").trim(),
         suggestedText: String(fix.suggestedText || "").trim(),
         title: String(fix.title || "").trim()
@@ -511,7 +543,7 @@ const normalizeReviewResponse = (rawResponse = {}, requestInput = {}) => {
             score: Number(rawResponse.overall?.score || 0),
             summary: String(rawResponse.overall?.summary || "").trim()
         },
-        topFixes: normalizeTopFixes(rawResponse.topFixes),
+        topFixes: normalizeTopFixes(rawResponse.topFixes, requestInput),
         bySection: normalizeBySection(rawResponse.bySection, requestInput)
     };
 

@@ -2,6 +2,7 @@ const { CONTENT_SECTION_IDS, normalizeSectionLayout } = require("./sectionLayout
 
 const REVIEW_MODES = ["section", "full", "job-match"];
 const OVERALL_TIERS = ["Needs Work", "Fair", "Strong", "Excellent"];
+const ISSUE_TYPES = ["impact", "clarity", "ats", "length"];
 const BLOCKED_IDENTITY_FIELDS = new Set(["name", "email", "phone", "linkedin"]);
 const AI_SUPPORTED_SECTION_IDS = CONTENT_SECTION_IDS.filter((sectionId) => sectionId !== "personal");
 
@@ -43,11 +44,13 @@ const RESPONSE_JSON_SCHEMA = {
                     priority: { type: "number" },
                     sectionId: { type: "string", enum: CONTENT_SECTION_IDS },
                     fieldPath: { type: "string" },
+                    issueType: { type: "string", enum: ISSUE_TYPES },
+                    originalText: { type: "string" },
                     reason: { type: "string" },
                     suggestedText: { type: "string" },
                     title: { type: "string" }
                 },
-                required: ["id", "priority", "sectionId", "fieldPath", "reason", "suggestedText", "title"]
+                required: ["id", "priority", "sectionId", "fieldPath", "issueType", "originalText", "reason", "suggestedText", "title"]
             }
         },
         bySection: {
@@ -116,6 +119,28 @@ const toPathTokens = (fieldPath = "") => {
 const getRootField = (fieldPath = "") => {
     const tokens = toPathTokens(fieldPath);
     return typeof tokens[0] === "string" ? tokens[0] : "";
+};
+
+const getValueByPath = (target, fieldPath = "") => {
+    if (!isObject(target) || !isNonEmptyString(fieldPath)) {
+        return "";
+    }
+
+    const tokens = toPathTokens(fieldPath);
+    if (tokens.length === 0) {
+        return "";
+    }
+
+    let cursor = target;
+    for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (cursor === null || cursor === undefined) {
+            return "";
+        }
+        cursor = cursor[token];
+    }
+
+    return typeof cursor === "string" ? cursor : "";
 };
 
 const hasExistingStringPath = (target, fieldPath = "") => {
@@ -218,15 +243,24 @@ const validateReviewRequest = (payload = {}) => {
     });
 };
 
-const normalizeSuggestion = (suggestion = {}, index = 0) => ({
-    id: isNonEmptyString(suggestion.id) ? suggestion.id.trim() : `sug_${index + 1}`,
-    priority: Number.isFinite(suggestion.priority) ? Math.max(1, Math.round(suggestion.priority)) : index + 1,
-    sectionId: String(suggestion.sectionId || "").trim(),
-    fieldPath: String(suggestion.fieldPath || "").trim(),
-    reason: String(suggestion.reason || "").trim(),
-    suggestedText: String(suggestion.suggestedText || "").trim(),
-    title: String(suggestion.title || "").trim()
-});
+const normalizeSuggestion = (suggestion = {}, index = 0, requestInput = {}) => {
+    const fieldPath = String(suggestion.fieldPath || "").trim();
+    const rootReason = String(suggestion.reason || "").trim();
+    const fallbackOriginal = getValueByPath(requestInput.cvData || {}, fieldPath);
+    const issueType = String(suggestion.issueType || "").trim().toLowerCase();
+
+    return {
+        id: isNonEmptyString(suggestion.id) ? suggestion.id.trim() : `sug_${index + 1}`,
+        priority: Number.isFinite(suggestion.priority) ? Math.max(1, Math.round(suggestion.priority)) : index + 1,
+        sectionId: String(suggestion.sectionId || "").trim(),
+        fieldPath,
+        issueType,
+        originalText: String(suggestion.originalText || fallbackOriginal || "").trim(),
+        reason: rootReason,
+        suggestedText: String(suggestion.suggestedText || "").trim(),
+        title: String(suggestion.title || "").trim()
+    };
+};
 
 const validateAiResponseShape = (response = {}, requestInput = {}) => {
     const errors = [];
@@ -270,7 +304,7 @@ const validateAiResponseShape = (response = {}, requestInput = {}) => {
         }
 
         response.topFixes.forEach((rawSuggestion, index) => {
-            const suggestion = normalizeSuggestion(rawSuggestion, index);
+            const suggestion = normalizeSuggestion(rawSuggestion, index, requestInput);
 
             if (!CONTENT_SECTION_IDS.includes(suggestion.sectionId)) {
                 errors.push(`topFixes[${index}].sectionId is invalid.`);
@@ -292,6 +326,12 @@ const validateAiResponseShape = (response = {}, requestInput = {}) => {
             }
             if (!isNonEmptyString(suggestion.title)) {
                 errors.push(`topFixes[${index}].title is required.`);
+            }
+            if (!ISSUE_TYPES.includes(suggestion.issueType)) {
+                errors.push(`topFixes[${index}].issueType must be one of: ${ISSUE_TYPES.join(", ")}.`);
+            }
+            if (!isNonEmptyString(suggestion.originalText)) {
+                errors.push(`topFixes[${index}].originalText is required.`);
             }
         });
     }
@@ -345,6 +385,7 @@ module.exports = {
     AI_SUPPORTED_SECTION_IDS,
     CONTENT_SECTION_IDS,
     OVERALL_TIERS,
+    ISSUE_TYPES,
     RESPONSE_JSON_SCHEMA,
     REVIEW_MODES,
     getRootField,
