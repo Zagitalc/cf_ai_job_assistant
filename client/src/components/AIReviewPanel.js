@@ -63,6 +63,7 @@ const AIReviewPanel = ({
     const hasError = status === "error";
 
     const pendingSuggestions = (data?.topFixes || []).filter((item) => item.status !== "dismissed" && item.status !== "accepted");
+    const showFooterActions = status === "ready" && pendingSuggestions.length > 0;
     const groupedSuggestions = useMemo(() => {
         const grouped = {};
         (data?.topFixes || []).forEach((suggestion) => {
@@ -175,7 +176,7 @@ const AIReviewPanel = ({
                 </div>
             )}
 
-            {data ? (
+            {showFooterActions ? (
                 <div className="ai-sheet-footer">
                     {confirmApplyAll ? (
                         <button
@@ -209,4 +210,3 @@ const AIReviewPanel = ({
 };
 
 export default AIReviewPanel;
-

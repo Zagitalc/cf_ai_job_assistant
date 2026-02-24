@@ -121,6 +121,8 @@ describe("aiReviewService", () => {
         const prompt = body.messages[1].content;
         expect(prompt).toContain('"name": "[redacted]"');
         expect(prompt).toContain('"email": "[redacted]"');
+        expect(prompt).toContain("Built services");
+        expect(prompt).not.toContain("<p>Built services</p>");
     });
 
     it("retries once when model returns invalid JSON, then succeeds", async () => {

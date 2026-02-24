@@ -112,8 +112,7 @@ body {
     gap: 10px;
 }
 
-.theme-toggle-btn,
-.mobile-toggle-btn {
+.theme-toggle-btn {
     border: 1px solid var(--border-color);
     background: var(--bg-muted);
     color: var(--text-primary);
@@ -125,13 +124,11 @@ body {
     transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.theme-toggle-btn:hover,
-.mobile-toggle-btn:hover {
+.theme-toggle-btn:hover {
     border-color: var(--btn-primary);
 }
 
 .theme-toggle-btn:focus-visible,
-.mobile-toggle-btn:focus-visible,
 .cv-section-toggle:focus-visible,
 .form-input:focus-visible,
 .form-textarea:focus-visible,
@@ -142,10 +139,6 @@ body {
 .chip-remove-btn:focus-visible {
     outline: 2px solid var(--btn-primary);
     outline-offset: 2px;
-}
-
-.mobile-toggle-btn {
-    display: none;
 }
 
 .app-content {
@@ -1061,14 +1054,6 @@ body {
     stroke: var(--text-secondary);
 }
 
-.mobile-floating-toggle {
-    display: none;
-}
-
-.preview-fab {
-    display: none;
-}
-
 .section-editor-overlay {
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
@@ -1249,10 +1234,6 @@ body {
         margin-top: 8px;
     }
 
-    .mobile-toggle-btn {
-        display: inline-flex;
-    }
-
     .app-content {
         flex-direction: column;
     }
@@ -1281,36 +1262,6 @@ body {
     .preview-page {
         min-height: 0;
         padding: 14px;
-    }
-
-    .mobile-floating-toggle {
-        display: none;
-    }
-
-    .preview-fab {
-        position: fixed;
-        right: 18px;
-        bottom: 18px;
-        z-index: 70;
-        border: none;
-        background: var(--btn-primary);
-        color: var(--btn-text);
-        border-radius: 999px;
-        min-width: 120px;
-        height: 50px;
-        padding: 0 20px;
-        justify-content: center;
-        align-items: center;
-        white-space: nowrap;
-        font-size: 1rem;
-        font-weight: 700;
-        box-shadow: 0 14px 26px rgba(37, 99, 235, 0.34);
-        display: inline-flex;
-        cursor: pointer;
-    }
-
-    .preview-fab:hover {
-        background: var(--btn-primary-hover);
     }
 
     .card-stack-form {
@@ -1623,16 +1574,99 @@ body {
 }
 
 .section-editor-overlay {
-    background: rgba(255, 255, 255, 0.78);
+    background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(16px);
+    color: #0d1b42;
 }
 
 .section-editor-header {
-    background: rgba(255, 255, 255, 0.86);
+    background: rgba(255, 255, 255, 0.96);
+}
+
+.section-editor-header h3 {
+    color: #0d1b42;
+}
+
+.section-editor-subtitle {
+    color: rgba(13, 27, 66, 0.72);
+}
+
+.section-editor-close {
+    color: #0d1b42;
+    background: rgba(255, 255, 255, 0.94);
+    border-color: rgba(13, 27, 66, 0.22);
+}
+
+.section-editor-overlay .form-label {
+    color: rgba(13, 27, 66, 0.78);
+}
+
+.section-editor-overlay .form-input,
+.section-editor-overlay .form-textarea,
+.section-editor-overlay .form-select {
+    color: #0d1b42;
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(13, 27, 66, 0.22);
+}
+
+.section-editor-overlay .form-input::placeholder,
+.section-editor-overlay .form-textarea::placeholder {
+    color: rgba(13, 27, 66, 0.58);
+}
+
+.section-editor-overlay .cv-section-body .ql-toolbar,
+.section-editor-overlay .cv-section-body .ql-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(13, 27, 66, 0.18);
+    color: #0d1b42;
+}
+
+.section-editor-overlay .cv-section-body .ql-snow .ql-picker,
+.section-editor-overlay .cv-section-body .ql-snow .ql-picker-label,
+.section-editor-overlay .cv-section-body .ql-snow .ql-picker-options,
+.section-editor-overlay .cv-section-body .ql-snow .ql-stroke,
+.section-editor-overlay .cv-section-body .ql-snow .ql-fill {
+    color: rgba(13, 27, 66, 0.78);
+    stroke: rgba(13, 27, 66, 0.78);
+}
+
+.app-preview-panel .ai-review-panel {
+    color: rgba(239, 244, 255, 0.92);
+}
+
+.app-preview-panel .ai-panel-header h2 {
+    color: #eef4ff;
+}
+
+.app-preview-panel .ai-panel-header p {
+    color: rgba(239, 244, 255, 0.74);
+}
+
+.app-preview-panel .ai-mode-row .form-label {
+    color: rgba(239, 244, 255, 0.78);
+}
+
+.app-preview-panel .ai-review-panel .form-select,
+.app-preview-panel .ai-review-panel .form-textarea {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.36);
+    color: #f4f8ff;
+}
+
+.app-preview-panel .ai-review-panel .form-select option {
+    color: #0d1b42;
+}
+
+.app-preview-panel .ai-empty-state.warm {
+    background: rgba(255, 255, 255, 0.18);
+    color: rgba(239, 244, 255, 0.92);
+    border-color: rgba(255, 255, 255, 0.35);
 }
 
 .preview-panel-tabs {
-    margin-bottom: 4px;
+    margin: 10px 0 6px 10px;
+    width: auto;
+    align-self: flex-start;
 }
 
 .panel-tab-btn {
@@ -1807,7 +1841,8 @@ body {
 
 .ai-diff-remove {
     text-decoration: line-through;
-    color: rgba(13, 27, 66, 0.42);
+    color: rgba(13, 27, 66, 0.66);
+    text-decoration-thickness: 2px;
 }
 
 .ai-diff-same {

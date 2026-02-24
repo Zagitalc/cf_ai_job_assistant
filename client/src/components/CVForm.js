@@ -847,6 +847,7 @@ const CVForm = ({
     );
 
     const completion = useMemo(() => getCompletionStatus(cvData), [cvData]);
+    const showAiEntryPrompt = aiEnabled && completion.completionPercent >= 60 && aiReviewStatus === "idle";
 
     return (
         <form className="cv-form card-stack-form" aria-label="CV Form">
@@ -874,14 +875,14 @@ const CVForm = ({
                 </div>
             </div>
 
-            {aiEnabled ? (
+            {showAiEntryPrompt ? (
                 <button
                     type="button"
                     className="ai-entry-prompt"
                     onClick={() => onOpenAIReview && onOpenAIReview()}
-                    disabled={aiReviewStatus === "loading"}
+                    disabled={aiReviewStatus === "loading" || aiReviewStatus === "streaming"}
                 >
-                    {aiReviewStatus === "loading" ? "Running AI review..." : "Ready for AI feedback?"}
+                    Ready for AI feedback?
                 </button>
             ) : null}
 

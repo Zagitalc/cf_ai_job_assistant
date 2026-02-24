@@ -1,5 +1,5 @@
 const { MongoMemoryServer } = require("mongodb-memory-server");
-const { mongoose, connectToDatabase } = require("../db");
+const mongoose = require("mongoose");
 
 let mongoServer;
 
@@ -15,7 +15,7 @@ beforeAll(async () => {
             ip: "127.0.0.1"
         }
     });
-    await connectToDatabase(mongoServer.getUri());
+    await mongoose.connect(mongoServer.getUri());
 });
 
 afterEach(async () => {
@@ -23,10 +23,9 @@ afterEach(async () => {
         return;
     }
 
-    const { collections } = mongoose.connection;
-
-    for (const collectionName of Object.keys(collections)) {
-        await collections[collectionName].deleteMany({});
+    const collections = mongoose.connection.collections;
+    for (const key in collections) {
+        await collections[key].deleteMany({});
     }
 });
 
@@ -35,7 +34,7 @@ afterAll(async () => {
         return;
     }
 
-    await mongoose.connection.close();
+    await mongoose.disconnect();
 
     if (mongoServer) {
         await mongoServer.stop();

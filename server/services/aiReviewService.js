@@ -8,6 +8,7 @@ const {
     redactSensitiveCvData,
     validateAiResponseShape
 } = require("../utils/aiSchema");
+const { stripHtml } = require("../utils/textUtils");
 
 class AiReviewError extends Error {
     constructor(message, statusCode = 502, details = []) {
@@ -54,6 +55,73 @@ const readMessageText = (payload = {}) => {
 
     return "";
 };
+
+const sanitizeString = (value) => stripHtml(typeof value === "string" ? value : "");
+
+const sanitizeEntryDescriptions = (entries = []) => {
+    if (!Array.isArray(entries)) {
+        return [];
+    }
+
+    return entries.map((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+            return entry;
+        }
+
+        if (!("description" in entry)) {
+            return entry;
+        }
+
+        return {
+            ...entry,
+            description: sanitizeString(entry.description)
+        };
+    });
+};
+
+const sanitizeStringArray = (values = []) => {
+    if (!Array.isArray(values)) {
+        return [];
+    }
+
+    return values.map((value) => (typeof value === "string" ? sanitizeString(value) : value));
+};
+
+const sanitizeProjectsForPrompt = (projects = []) => {
+    if (!Array.isArray(projects)) {
+        return [];
+    }
+
+    if (projects.every((item) => typeof item === "string")) {
+        return sanitizeStringArray(projects);
+    }
+
+    if (projects.every((item) => item && typeof item === "object" && !Array.isArray(item))) {
+        return sanitizeEntryDescriptions(projects);
+    }
+
+    return projects;
+};
+
+const sanitizeCvDataForPrompt = (cvData = {}) => ({
+    ...cvData,
+    summary: sanitizeString(cvData.summary),
+    workExperience: sanitizeStringArray(cvData.workExperience),
+    volunteerExperience: sanitizeStringArray(cvData.volunteerExperience),
+    projects: sanitizeProjectsForPrompt(cvData.projects),
+    certifications: sanitizeStringArray(cvData.certifications),
+    awards: sanitizeStringArray(cvData.awards),
+    additionalInfo: sanitizeString(cvData.additionalInfo),
+    education: Array.isArray(cvData.education)
+        ? cvData.education.map((item = {}) => ({
+              ...item,
+              additionalInfo: sanitizeString(item.additionalInfo)
+          }))
+        : [],
+    work: sanitizeEntryDescriptions(cvData.work),
+    volunteer: sanitizeEntryDescriptions(cvData.volunteer),
+    projectsObject: sanitizeEntryDescriptions(cvData.projectsObject)
+});
 
 const tryParseJson = (text = "") => {
     try {
@@ -249,11 +317,11 @@ const normalizeSuggestion = (rawSuggestion, index, requestInput) => {
         return null;
     }
 
-    const existingText = getValueByPath(requestInput.cvData, safeFieldPath);
+    const existingText = stripHtml(getValueByPath(requestInput.cvData, safeFieldPath));
     const fallbackSuggestedText = existingText
-        ? `${existingText} (refine with scope, action verbs, and measurable impact).`
-        : "Refine this content with specific actions, context, and measurable outcomes.";
-    const originalText = String(rawSuggestion?.originalText || rawSuggestion?.sourceText || existingText).trim();
+        ? existingText
+        : "Add a concise, specific achievement with measurable impact.";
+    const originalText = sanitizeString(rawSuggestion?.originalText || rawSuggestion?.sourceText || existingText);
 
     return {
         id: String(rawSuggestion?.id || `sug_${index + 1}`),
@@ -263,7 +331,7 @@ const normalizeSuggestion = (rawSuggestion, index, requestInput) => {
         issueType: inferIssueType(rawSuggestion),
         originalText,
         reason: String(rawSuggestion?.reason || rawSuggestion?.issue || "This change increases clarity and recruiter impact.").trim(),
-        suggestedText: String(rawSuggestion?.suggestedText || rawSuggestion?.suggestion || fallbackSuggestedText).trim(),
+        suggestedText: sanitizeString(rawSuggestion?.suggestedText || rawSuggestion?.suggestion || fallbackSuggestedText),
         title: String(rawSuggestion?.title || `Improve ${SECTION_TITLES[safeSection] || safeSection}`).trim()
     };
 };
@@ -399,30 +467,95 @@ You are an expert resume reviewer. Follow these rules exactly:
 - Use only existing section IDs and existing field paths from the input.
 - Keep suggestions concise and actionable.
 - Include why each fix matters.
+- For each suggestion object in topFixes, include exactly these fields:
+{
+  sectionId: string,           // e.g. "work", "summary", "skills"
+  field: string,               // e.g. "workExperience[0]"
+  category: string,            // one of: Impact | Clarity | ATS | Grammar
+  originalText: string,        // exact current plain text, no HTML
+  suggestedText: string,       // complete rewritten replacement, ready to apply, no HTML
+  reason: string               // max 12 words explaining the improvement
+}
+CRITICAL: suggestedText must be the actual replacement text, not instructions
+about what to write. It must be immediately usable. Never include HTML tags
+in any field. Never return prose outside the JSON objects.
 `.trim();
 
-const buildUserPrompt = ({ mode, sectionId, jobDescription, sectionLayout, cvData }) => {
-    const instructions = [
-        `Mode: ${mode}.`,
-        mode === "section" ? `Focus only on sectionId: ${sectionId}.` : "Review the full CV.",
-        mode === "job-match" ? "Evaluate CV against the provided job description." : "No job description comparison required.",
-        "Return a response object with overall, topFixes, bySection, and jobMatch (job-match mode only).",
-        "For section mode, return exactly 2-3 topFixes.",
-        "For full/job-match mode, return at most 3 topFixes sorted by impact.",
-        "Use only fieldPath values that already exist in cvData and target string fields."
-    ];
+const buildSectionPrompt = ({ sectionId, sectionLayout, cvData }) =>
+    `Mode: section.
+Focus only on sectionId: ${sectionId}.
+Return a response object with overall, topFixes, bySection.
+For section mode, return exactly 2-3 topFixes.
+Each suggestion must map:
+- field -> existing cvData fieldPath
+- category -> one of Impact|Clarity|ATS|Grammar
+Use only existing field paths in cvData and only string fields.
 
-    return `${instructions.join("\n")}\n\nInput JSON:\n${JSON.stringify(
-        {
-            mode,
-            sectionId,
-            jobDescription: mode === "job-match" ? jobDescription : "",
-            sectionLayout,
-            cvData
-        },
-        null,
-        2
-    )}`;
+Input JSON:
+${JSON.stringify(
+    {
+        mode: "section",
+        sectionId,
+        sectionLayout,
+        cvData
+    },
+    null,
+    2
+)}`;
+
+const buildFullReviewPrompt = ({ sectionLayout, cvData }) =>
+    `Mode: full.
+Review the full CV.
+Return a response object with overall, topFixes, bySection.
+For full mode, return at most 3 topFixes sorted by impact.
+Each suggestion must map:
+- field -> existing cvData fieldPath
+- category -> one of Impact|Clarity|ATS|Grammar
+Use only existing field paths in cvData and only string fields.
+
+Input JSON:
+${JSON.stringify(
+    {
+        mode: "full",
+        sectionLayout,
+        cvData
+    },
+    null,
+    2
+)}`;
+
+const buildJobMatchPrompt = ({ jobDescription, sectionLayout, cvData }) =>
+    `Mode: job-match.
+Evaluate CV against the provided job description.
+Return a response object with overall, topFixes, bySection, and jobMatch.
+For job-match mode, return at most 3 topFixes sorted by impact.
+Each suggestion must map:
+- field -> existing cvData fieldPath
+- category -> one of Impact|Clarity|ATS|Grammar
+Use only existing field paths in cvData and only string fields.
+
+Input JSON:
+${JSON.stringify(
+    {
+        mode: "job-match",
+        jobDescription,
+        sectionLayout,
+        cvData
+    },
+    null,
+    2
+)}`;
+
+const buildPromptByMode = ({ mode, sectionId, jobDescription, sectionLayout, cvData }) => {
+    if (mode === "section") {
+        return buildSectionPrompt({ sectionId, sectionLayout, cvData });
+    }
+
+    if (mode === "job-match") {
+        return buildJobMatchPrompt({ jobDescription, sectionLayout, cvData });
+    }
+
+    return buildFullReviewPrompt({ sectionLayout, cvData });
 };
 
 const postOpenAi = async ({ apiKey, requestPayload, fetchImpl }) =>
@@ -528,9 +661,9 @@ const normalizeTopFixes = (topFixes = [], requestInput = {}) =>
         sectionId: fix.sectionId,
         fieldPath: fix.fieldPath,
         issueType: inferIssueType(fix),
-        originalText: String(fix.originalText || getValueByPath(requestInput.cvData || {}, fix.fieldPath || "")).trim(),
+        originalText: sanitizeString(fix.originalText || getValueByPath(requestInput.cvData || {}, fix.fieldPath || "")),
         reason: String(fix.reason || "").trim(),
-        suggestedText: String(fix.suggestedText || "").trim(),
+        suggestedText: sanitizeString(fix.suggestedText || ""),
         title: String(fix.title || "").trim()
     }));
 
@@ -577,7 +710,6 @@ Return corrected JSON only.
 `.trim();
 
 const requestAiReview = async (input, options = {}) => {
-    const start = Date.now();
     const fetchImpl = options.fetchImpl || global.fetch;
 
     if (typeof fetchImpl !== "function") {
@@ -587,9 +719,10 @@ const requestAiReview = async (input, options = {}) => {
     const apiKey = options.apiKey || process.env.OPENAI_API_KEY;
     const model = options.model || process.env.OPENAI_MODEL || "gpt-5-mini";
 
+    const sanitizedCvData = sanitizeCvDataForPrompt(input.cvData || {});
     const safeInput = {
         ...input,
-        cvData: redactSensitiveCvData(input.cvData)
+        cvData: redactSensitiveCvData(sanitizedCvData)
     };
 
     const baseMessages = [
@@ -599,11 +732,10 @@ const requestAiReview = async (input, options = {}) => {
         },
         {
             role: "user",
-            content: buildUserPrompt(safeInput)
+            content: buildPromptByMode(safeInput)
         }
     ];
 
-    let usage = {};
     let rawText = "";
     let parsed = null;
     let validation = { ok: false, errors: ["Unknown validation state"] };
@@ -622,7 +754,6 @@ const requestAiReview = async (input, options = {}) => {
 
         const response = await callOpenAi({ apiKey, model, messages, fetchImpl });
         rawText = response.rawText;
-        usage = response.usage || usage;
         parsed = parseJsonLenient(rawText);
 
         if (!parsed) {
@@ -637,16 +768,6 @@ const requestAiReview = async (input, options = {}) => {
             break;
         }
     }
-
-    const durationMs = Date.now() - start;
-    console.info("[AI_REVIEW]", {
-        mode: input.mode,
-        status: validation.ok ? "valid" : "invalid",
-        durationMs,
-        promptTokens: usage.prompt_tokens || null,
-        completionTokens: usage.completion_tokens || null,
-        totalTokens: usage.total_tokens || null
-    });
 
     if (!validation.ok || !parsed) {
         throw new AiReviewError("AI returned an invalid response shape.", 502, validation.errors);

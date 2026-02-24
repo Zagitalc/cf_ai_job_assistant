@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const DEFAULT_MONGODB_URI =
-    process.env.MONGODB_URI || "mongodb://localhost:27017/onclickcv";
+    process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/onclickcv";
 
 let listenersRegistered = false;
 
@@ -21,10 +21,10 @@ function registerConnectionListeners() {
     listenersRegistered = true;
 }
 
-async function connectToDatabase(uri = DEFAULT_MONGODB_URI) {
+async function connectDB(uri = DEFAULT_MONGODB_URI) {
     registerConnectionListeners();
 
-    if (mongoose.connection.readyState === 1) {
+    if (mongoose.connection.readyState !== 0) {
         return mongoose.connection;
     }
 
@@ -32,7 +32,10 @@ async function connectToDatabase(uri = DEFAULT_MONGODB_URI) {
     return mongoose.connection;
 }
 
-module.exports = {
-    mongoose,
-    connectToDatabase
-};
+if (process.env.NODE_ENV !== "test") {
+    connectDB();
+}
+
+module.exports = connectDB;
+module.exports.connectDB = connectDB;
+module.exports.mongoose = mongoose;
