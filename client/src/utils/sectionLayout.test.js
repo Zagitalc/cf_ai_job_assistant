@@ -13,10 +13,9 @@ describe("sectionLayout utils", () => {
 
         expect(layout.left).toContain("personal");
         expect(layout.right).toContain("summary");
-        expect(layout.editorCardOrder).toContain("ai-review");
         expect(layout.editorCardOrder).toContain("template-export");
-        expect(layout.editorCardOrder.indexOf("ai-review")).toBe(
-            layout.editorCardOrder.indexOf("template-export") - 1
+        expect(layout.editorCardOrder.indexOf("template-export")).toBeGreaterThan(
+            layout.editorCardOrder.indexOf("additional-info")
         );
     });
 
@@ -24,7 +23,7 @@ describe("sectionLayout utils", () => {
         const normalized = normalizeSectionLayout({
             left: ["skills", "personal", "unknown"],
             right: ["work", "summary"],
-            editorCardOrder: ["summary", "work", "personal", "skills", "template-export", "save-load"]
+            editorCardOrder: ["summary", "work", "personal", "skills", "template-export", "save-load", "ai-review"]
         });
 
         expect(normalized.left[0]).toBe("personal");

@@ -6,16 +6,15 @@ const AIReviewModal = ({ isOpen, onClose, children }) => {
     }
 
     return (
-        <div className="preview-modal-root no-print" role="dialog" aria-modal="true" aria-label="AI review modal">
-            <div className="preview-modal-panel ai-review-modal-panel">
-                <div className="preview-modal-header">
+        <div className="ai-modal-root no-print" role="dialog" aria-modal="true" aria-label="AI review modal">
+            <div className="ai-modal-panel">
+                <div className="ai-modal-header">
                     <button type="button" onClick={onClose} className="preview-modal-btn preview-modal-close">
-                        Close
+                        Done
                     </button>
                     <span className="preview-modal-title">AI Review</span>
-                    <div className="preview-modal-actions" />
                 </div>
-                <div className="preview-modal-body ai-review-modal-body">{children}</div>
+                <div className="ai-modal-body">{children}</div>
             </div>
         </div>
     );

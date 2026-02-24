@@ -1,46 +1,34 @@
-import React, { useState } from "react";
+import React from "react";
 
-const MobileSpeedDial = ({ onOpenPreview, onOpenAI, aiEnabled }) => {
-    const [isOpen, setIsOpen] = useState(false);
+const MobileSpeedDial = ({ activeView, onChangeView, onOpenAI, hasPendingSuggestions, aiEnabled }) => (
+    <nav className="mobile-bottom-nav no-print" aria-label="Primary mobile navigation">
+        <button
+            type="button"
+            className={`mobile-nav-btn ${activeView === "stack" ? "active" : ""}`}
+            onClick={() => onChangeView && onChangeView("stack")}
+        >
+            <span className="mobile-nav-label">Stack</span>
+        </button>
 
-    return (
-        <div className="mobile-speed-dial no-print">
-            {isOpen ? (
-                <div className="mobile-speed-options">
-                    <button
-                        type="button"
-                        className="mobile-speed-option"
-                        onClick={() => {
-                            setIsOpen(false);
-                            onOpenPreview && onOpenPreview();
-                        }}
-                    >
-                        Preview
-                    </button>
-                    {aiEnabled ? (
-                        <button
-                            type="button"
-                            className="mobile-speed-option"
-                            onClick={() => {
-                                setIsOpen(false);
-                                onOpenAI && onOpenAI();
-                            }}
-                        >
-                            AI Review
-                        </button>
-                    ) : null}
-                </div>
-            ) : null}
-            <button
-                type="button"
-                className="preview-fab"
-                aria-label={isOpen ? "Close quick actions" : "Open quick actions"}
-                onClick={() => setIsOpen((current) => !current)}
-            >
-                {isOpen ? "Close" : "Actions"}
-            </button>
-        </div>
-    );
-};
+        <button
+            type="button"
+            className={`mobile-nav-btn mobile-nav-center ${hasPendingSuggestions ? "pending" : ""}`}
+            onClick={() => onOpenAI && onOpenAI()}
+            disabled={!aiEnabled}
+            aria-label="Open AI review"
+        >
+            <span className="mobile-nav-label">AI</span>
+        </button>
+
+        <button
+            type="button"
+            className={`mobile-nav-btn ${activeView === "preview" ? "active" : ""}`}
+            onClick={() => onChangeView && onChangeView("preview")}
+        >
+            <span className="mobile-nav-label">Preview</span>
+        </button>
+    </nav>
+);
 
 export default MobileSpeedDial;
+

@@ -2,61 +2,29 @@
 
 OnClickCV is a full-stack CV builder for creating professional CVs with live preview, template switching, and export to PDF/Word.
 
-## What's New in V3
+## What's New in V3.1
 
-V3 introduces AI-assisted CV review on top of the existing editor:
+V3.1 introduces the new glass UX system and a single, coherent AI review journey:
 
-- **Section-level AI suggestions**:
-  - Trigger AI feedback per section from each card
-  - Suggestions are field-targeted and can be **Accepted** or **Dismissed**
-- **Full CV AI review panel**:
-  - Desktop toggle between `Preview` and `AI Review`
-  - Mobile full-screen AI review flow
-- **Job Match mode**:
-  - Paste a job description and compare CV alignment
-  - Returns keyword gaps and role-fit notes
-- **Safety + control**:
-  - AI reads structured `cvData`/`sectionLayout` only (not exported files)
-  - No auto-editing; all changes require explicit user acceptance
-  - Server-side schema validation and guarded patch application
-
-## What's New in V2.6
-
-V2.6 focuses on output hygiene, completion clarity, and mobile safety:
-
-- **No empty optional sections in output**:
-  - Preview/PDF/Word now omit empty optional sections (no `N/A` ghost blocks)
-  - Section order is still respected, but filtered by real content
-- **Core-based completion model**:
-  - Completion is based on core readiness (`Personal + Skills + Education + (Work OR Projects)`)
-  - Optional sections no longer prevent users from reaching 100%
-- **Template ordering and layout resilience**:
-  - Template A linear ordering preserved for professional one-column output
-  - Stale/legacy section layouts are normalized safely without hiding populated data
-- **Card-stack stability improvements**:
-  - Utility cards are fixed in place in editor order
-  - Added **Additional Info** section (ReactQuill) before Template & Export
-- **Mobile usability fix**:
-  - Card stack keeps bottom safe space so floating preview controls do not block last cards
-
-## What's New in V2.6.1
-
-V2.6.1 adds smart export filename control:
-
-- **Smart filename picker** in both:
-  - Template & Export card
-  - Mobile Preview Modal
-- **Suggestions + editable input**:
-  - 3 CV-aware suggestions generated from profile data and template
-  - User can select a suggestion or type a custom base filename
-- **Safe filename normalization**:
-  - Invalid filename characters removed
-  - Repeated separators collapsed
-  - Base filename length capped
-  - Extension applied by export type (`.pdf` / `.docx`)
-- **Session-only behavior**:
-  - Filename preference stays in local UI state
-  - No database schema/persistence changes required for filename settings
+- **Unified Glass UI (Desktop + Mobile)**:
+  - Dark navy mesh canvas across dashboard, editor, AI sheet, and preview
+  - Frosted glass cards/sheets and reduced visual noise in card controls
+  - Mobile moved from FAB speed-dial to fixed bottom navigation
+- **Simplified Dashboard Cards**:
+  - Per-card AI buttons removed
+  - One primary card action (Edit/Open) with compact section metadata
+  - Post-review section markers show where pending AI suggestions exist
+- **AI Review as Bottom Sheet**:
+  - Grouped suggestion cards by issue type (`impact`, `clarity`, `ats`, `length`)
+  - Diff-style presentation (`originalText` vs `suggestedText`)
+  - Per-suggestion **Apply** / **Dismiss** and confirmable **Apply All**
+- **Streaming AI Review Delivery**:
+  - New SSE endpoint: `POST /api/ai/review/stream`
+  - Event flow: `start` -> `overall` -> `suggestion` -> `complete` (or `error`)
+  - Client progressively renders suggestions with fallback to the existing `/api/ai/review` endpoint
+- **Backend Suggestion Contract Upgrade**:
+  - Suggestions now include `issueType` and `originalText` in normalized output
+  - Existing `/api/ai/review` endpoint remains for compatibility
 
 ## Prerequisites
 

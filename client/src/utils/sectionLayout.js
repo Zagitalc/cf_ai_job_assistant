@@ -18,7 +18,6 @@ const DEFAULT_EDITOR_CARD_ORDER = [
     "certifications",
     "awards",
     "additional-info",
-    "ai-review",
     "template-export",
     "save-load"
 ];

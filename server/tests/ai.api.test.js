@@ -9,7 +9,7 @@ jest.mock("../services/aiReviewService", () => ({
     }
 }));
 
-const { reviewCV } = require("../controllers/aiController");
+const { reviewCV, reviewCVStream } = require("../controllers/aiController");
 const { requestAiReview, AiReviewError } = require("../services/aiReviewService");
 
 const makeCvData = () => ({
@@ -42,6 +42,8 @@ const makeResponse = (mode) => ({
             priority: 1,
             sectionId: "summary",
             fieldPath: "summary",
+            issueType: "impact",
+            originalText: "Backend engineer",
             reason: "Sharper positioning improves first impression.",
             suggestedText: "Senior backend engineer with 6+ years scaling APIs.",
             title: "Strengthen summary opener"
@@ -70,12 +72,25 @@ describe("AI review API", () => {
         const response = {
             statusCode: 200,
             body: null,
+            headers: {},
             status(code) {
                 this.statusCode = code;
                 return this;
             },
+            setHeader(key, value) {
+                this.headers[key] = value;
+            },
             json(payload) {
                 this.body = payload;
+                return this;
+            },
+            write() {
+                return true;
+            },
+            end() {
+                return this;
+            },
+            flushHeaders() {
                 return this;
             }
         };
@@ -189,6 +204,21 @@ describe("AI review API", () => {
         expect(res.statusCode).toBe(503);
     });
 
+    it("returns 404 when AI review is disabled", async () => {
+        process.env.AI_REVIEW_ENABLED = "false";
+        const req = {
+            body: {
+                mode: "full",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            }
+        };
+        const res = makeRes();
+        await reviewCV(req, res);
+        expect(res.statusCode).toBe(404);
+        expect(res.body.error).toMatch(/disabled/i);
+    });
+
     it("returns 502 when AI service reports invalid model output", async () => {
         requestAiReview.mockRejectedValueOnce(
             new AiReviewError("AI returned an invalid response shape.", 502, ["Model response is not valid JSON."])
@@ -206,5 +236,148 @@ describe("AI review API", () => {
 
         expect(res.statusCode).toBe(502);
         expect(res.body.details).toContain("Model response is not valid JSON.");
+    });
+
+    it("returns 500 when AI service throws unexpected error", async () => {
+        requestAiReview.mockRejectedValueOnce(new Error("unexpected boom"));
+        const req = {
+            body: {
+                mode: "full",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            }
+        };
+        const res = makeRes();
+        await reviewCV(req, res);
+        expect(res.statusCode).toBe(500);
+        expect(res.body.error).toMatch(/unexpected/i);
+    });
+
+    it("stream endpoint returns 404 when disabled", async () => {
+        process.env.AI_REVIEW_ENABLED = "false";
+        const req = {
+            body: {
+                mode: "full",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            },
+            on: jest.fn()
+        };
+        const res = makeRes();
+        await reviewCVStream(req, res);
+        expect(res.statusCode).toBe(404);
+    });
+
+    it("stream endpoint returns 503 when OPENAI_API_KEY missing", async () => {
+        delete process.env.OPENAI_API_KEY;
+        const req = {
+            body: {
+                mode: "full",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            },
+            on: jest.fn()
+        };
+        const res = makeRes();
+        await reviewCVStream(req, res);
+        expect(res.statusCode).toBe(503);
+    });
+
+    it("stream endpoint returns 400 for invalid payload", async () => {
+        const req = {
+            body: {
+                mode: "job-match",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            },
+            on: jest.fn()
+        };
+        const res = makeRes();
+        await reviewCVStream(req, res);
+        expect(res.statusCode).toBe(400);
+    });
+
+    it("streams AI review events in the expected order", async () => {
+        requestAiReview.mockResolvedValueOnce(makeResponse("full"));
+        const req = {
+            body: {
+                mode: "full",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            },
+            on: jest.fn()
+        };
+        const writes = [];
+        const res = makeRes();
+        res.write = jest.fn((chunk) => writes.push(chunk));
+        res.end = jest.fn();
+
+        await reviewCVStream(req, res);
+
+        expect(res.headers["Content-Type"]).toBe("text/event-stream");
+        const output = writes.join("");
+        expect(output).toContain("event: start");
+        expect(output).toContain("event: overall");
+        expect(output).toContain("event: suggestion");
+        expect(output).toContain("event: complete");
+        expect(res.end).toHaveBeenCalled();
+    });
+
+    it("streams an error event when AI service fails", async () => {
+        requestAiReview.mockRejectedValueOnce(new AiReviewError("boom", 502, ["detail"]));
+        const req = {
+            body: {
+                mode: "full",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            },
+            on: jest.fn()
+        };
+        const writes = [];
+        const res = makeRes();
+        res.write = jest.fn((chunk) => writes.push(chunk));
+        res.end = jest.fn();
+
+        await reviewCVStream(req, res);
+
+        const output = writes.join("");
+        expect(output).toContain("event: error");
+        expect(output).toContain("boom");
+        expect(res.end).toHaveBeenCalled();
+    });
+
+    it("stops streaming gracefully when client closes before suggestions", async () => {
+        requestAiReview.mockResolvedValueOnce(makeResponse("full"));
+        let closeHandler = null;
+        const req = {
+            body: {
+                mode: "full",
+                cvData: makeCvData(),
+                sectionLayout: {}
+            },
+            on: jest.fn((event, handler) => {
+                if (event === "close") {
+                    closeHandler = handler;
+                }
+            })
+        };
+
+        const writes = [];
+        const res = makeRes();
+        res.write = jest.fn((chunk) => {
+            writes.push(chunk);
+            if (typeof chunk === "string" && chunk.includes("event: overall") && closeHandler) {
+                closeHandler();
+            }
+        });
+        res.end = jest.fn();
+
+        await reviewCVStream(req, res);
+
+        const output = writes.join("");
+        expect(output).toContain("event: start");
+        expect(output).toContain("event: overall");
+        expect(output).not.toContain("event: suggestion");
+        expect(res.end).toHaveBeenCalled();
     });
 });

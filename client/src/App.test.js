@@ -2,6 +2,11 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { Simulate } from "react-dom/test-utils";
 import App from "./App";
+import { consumeSse } from "./utils/aiStream";
+
+jest.mock("./utils/aiStream", () => ({
+    consumeSse: jest.fn()
+}));
 
 jest.mock("./components/CVForm", () => (props) => (
     <div>
@@ -17,22 +22,13 @@ jest.mock("./components/CVForm", () => (props) => (
         <button type="button" onClick={() => props.setTemplate("B")}>
             Mock Set Template B
         </button>
+        <button type="button" onClick={() => props.onOpenAIReview()}>
+            Mock Open AI
+        </button>
         <span>{(props.exportFileSuggestions || []).join("|")}</span>
     </div>
 ));
 jest.mock("./components/CVPreview", () => () => <div>Mock CV Preview</div>);
-
-const createMatchMedia = (isDark) =>
-    jest.fn().mockImplementation((query) => ({
-        matches: isDark && query.includes("prefers-color-scheme: dark"),
-        media: query,
-        onchange: null,
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        dispatchEvent: jest.fn()
-    }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -45,15 +41,16 @@ describe("App", () => {
         document.body.appendChild(container);
         root = createRoot(container);
 
-        window.localStorage.clear();
-        window.matchMedia = createMatchMedia(false);
         Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1200 });
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
-            blob: async () => new Blob(["cv"], { type: "application/pdf" })
+            blob: async () => new Blob(["cv"], { type: "application/pdf" }),
+            body: {},
+            json: async () => ({})
         });
         window.URL.createObjectURL = jest.fn(() => "blob:mock");
         window.URL.revokeObjectURL = jest.fn();
+        consumeSse.mockReset();
         delete process.env.REACT_APP_AI_REVIEW_ENABLED;
     });
 
@@ -65,53 +62,6 @@ describe("App", () => {
         delete process.env.REACT_APP_AI_REVIEW_ENABLED;
     });
 
-    it("loads theme from localStorage and toggles/persists it", () => {
-        window.localStorage.setItem("onclickcv.theme", "dark");
-
-        act(() => {
-            root.render(<App />);
-        });
-
-        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-
-        const themeButton = container.querySelector('button[aria-label="Switch to light mode"]');
-        expect(themeButton).not.toBeNull();
-
-        act(() => {
-            Simulate.click(themeButton);
-        });
-
-        expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-        expect(window.localStorage.getItem("onclickcv.theme")).toBe("light");
-    });
-
-    it("falls back to system dark preference when there is no stored theme", () => {
-        window.matchMedia = createMatchMedia(true);
-
-        act(() => {
-            root.render(<App />);
-        });
-
-        expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-    });
-
-    it("opens mobile preview modal from FAB", () => {
-        window.innerWidth = 800;
-
-        act(() => {
-            root.render(<App />);
-        });
-
-        const previewFab = container.querySelector('button[aria-label="Open CV preview"]');
-        expect(previewFab).not.toBeNull();
-
-        act(() => {
-            Simulate.click(previewFab);
-        });
-
-        expect(container.textContent).toContain("Preview");
-    });
-
     it("keeps desktop preview panel visible in split layout", () => {
         window.innerWidth = 1280;
 
@@ -120,7 +70,25 @@ describe("App", () => {
         });
 
         expect(container.querySelector('[data-testid="preview-panel"]')).not.toBeNull();
-        expect(container.querySelector('button[aria-label="Open CV preview"]')).toBeNull();
+    });
+
+    it("switches mobile bottom-nav between stack and preview views", () => {
+        window.innerWidth = 800;
+
+        act(() => {
+            root.render(<App />);
+        });
+
+        expect(container.textContent).toContain("Mock CV Form");
+        expect(container.textContent).not.toContain("Mock CV Preview");
+
+        const previewNavBtn = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Preview");
+        act(() => {
+            Simulate.click(previewNavBtn);
+        });
+
+        expect(container.textContent).toContain("Mock CV Preview");
+        expect(container.textContent).not.toContain("Mock CV Form");
     });
 
     it("uses typed export filename for download", async () => {
@@ -154,14 +122,12 @@ describe("App", () => {
         createElementSpy.mockRestore();
     });
 
-    it("updates suggestions when template changes", () => {
+    it("updates filename suggestions when template changes", () => {
         act(() => {
             root.render(<App />);
         });
 
-        const beforeText = container.textContent;
-        expect(beforeText).toContain("TemplateA");
-
+        expect(container.textContent).toContain("TemplateA");
         const templateBtn = Array.from(container.querySelectorAll("button")).find(
             (btn) => btn.textContent === "Mock Set Template B"
         );
@@ -190,7 +156,7 @@ describe("App", () => {
         expect(container.querySelector('[aria-label="AI review panel"]')).not.toBeNull();
     });
 
-    it("opens mobile AI review modal from speed dial when AI is enabled", () => {
+    it("opens mobile AI review modal from bottom navigation center action", () => {
         process.env.REACT_APP_AI_REVIEW_ENABLED = "true";
         window.innerWidth = 800;
 
@@ -198,20 +164,114 @@ describe("App", () => {
             root.render(<App />);
         });
 
-        const actionsFab = container.querySelector('button[aria-label="Open quick actions"]');
-        expect(actionsFab).not.toBeNull();
-
+        const aiBtn = container.querySelector('button[aria-label="Open AI review"]');
+        expect(aiBtn).not.toBeNull();
         act(() => {
-            Simulate.click(actionsFab);
-        });
-
-        const aiReviewOption = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "AI Review");
-        expect(aiReviewOption).toBeTruthy();
-
-        act(() => {
-            Simulate.click(aiReviewOption);
+            Simulate.click(aiBtn);
         });
 
         expect(container.querySelector('[aria-label="AI review modal"]')).not.toBeNull();
     });
+
+    it("accumulates streamed AI suggestions and marks panel ready", async () => {
+        process.env.REACT_APP_AI_REVIEW_ENABLED = "true";
+        window.innerWidth = 1280;
+
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            body: {},
+            json: async () => ({})
+        });
+        consumeSse.mockImplementation(async (_response, handlers) => {
+            handlers.onEvent("start", { generatedAt: "2026-02-22T00:00:00.000Z" });
+            handlers.onEvent("overall", {
+                generatedAt: "2026-02-22T00:00:00.000Z",
+                overall: { tier: "Strong", score: 84, summary: "Looks strong." },
+                bySection: {}
+            });
+            handlers.onEvent("suggestion", {
+                suggestion: {
+                    id: "s1",
+                    sectionId: "summary",
+                    fieldPath: "summary",
+                    issueType: "impact",
+                    originalText: "Backend engineer",
+                    suggestedText: "Senior backend engineer with measurable outcomes",
+                    reason: "More impact",
+                    title: "Strengthen opener"
+                }
+            });
+            handlers.onEvent("complete", {});
+        });
+
+        act(() => {
+            root.render(<App />);
+        });
+
+        const aiTab = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "AI Review");
+        act(() => {
+            Simulate.click(aiTab);
+        });
+
+        const runBtn = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Run Review");
+        await act(async () => {
+            Simulate.click(runBtn);
+        });
+
+        expect(container.textContent).toContain("Strengthen opener");
+        expect(container.textContent).toContain("Apply Change");
+    });
+
+    it("falls back to non-stream endpoint when SSE consumption fails", async () => {
+        process.env.REACT_APP_AI_REVIEW_ENABLED = "true";
+        window.innerWidth = 1280;
+
+        global.fetch = jest
+            .fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                body: {},
+                json: async () => ({})
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    mode: "full",
+                    generatedAt: "2026-02-22T00:00:00.000Z",
+                    overall: { tier: "Strong", score: 80, summary: "Good base." },
+                    bySection: {},
+                    topFixes: [
+                        {
+                            id: "fallback_1",
+                            sectionId: "summary",
+                            fieldPath: "summary",
+                            issueType: "impact",
+                            originalText: "Backend engineer",
+                            suggestedText: "Senior backend engineer",
+                            reason: "Stronger positioning",
+                            title: "Fallback suggestion"
+                        }
+                    ]
+                })
+            });
+
+        consumeSse.mockRejectedValueOnce(new Error("stream boom"));
+
+        act(() => {
+            root.render(<App />);
+        });
+
+        const aiTab = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "AI Review");
+        act(() => {
+            Simulate.click(aiTab);
+        });
+
+        const runBtn = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Run Review");
+        await act(async () => {
+            Simulate.click(runBtn);
+        });
+
+        expect(container.textContent).toContain("Fallback suggestion");
+    });
 });
+
