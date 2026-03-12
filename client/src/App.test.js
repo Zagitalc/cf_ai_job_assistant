@@ -29,6 +29,7 @@ jest.mock("./components/CVForm", () => (props) => (
     </div>
 ));
 jest.mock("./components/CVPreview", () => () => <div>Mock CV Preview</div>);
+jest.mock("./components/JobAssistantPanel", () => () => <div aria-label="Job assistant panel">Mock Job Assistant</div>);
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -156,7 +157,7 @@ describe("App", () => {
         expect(container.querySelector('[aria-label="AI review panel"]')).not.toBeNull();
     });
 
-    it("opens mobile AI review modal from bottom navigation center action", () => {
+    it("opens mobile AI workspace modal from bottom navigation center action", () => {
         process.env.REACT_APP_AI_REVIEW_ENABLED = "true";
         window.innerWidth = 800;
 
@@ -164,13 +165,31 @@ describe("App", () => {
             root.render(<App />);
         });
 
-        const aiBtn = container.querySelector('button[aria-label="Open AI review"]');
+        const aiBtn = container.querySelector('button[aria-label="Open AI workspace"]');
         expect(aiBtn).not.toBeNull();
         act(() => {
             Simulate.click(aiBtn);
         });
 
         expect(container.querySelector('[aria-label="AI review modal"]')).not.toBeNull();
+    });
+
+    it("switches desktop right panel to the assistant tab", () => {
+        process.env.REACT_APP_AI_REVIEW_ENABLED = "true";
+        window.innerWidth = 1280;
+
+        act(() => {
+            root.render(<App />);
+        });
+
+        const assistantTab = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Assistant");
+        expect(assistantTab).toBeTruthy();
+
+        act(() => {
+            Simulate.click(assistantTab);
+        });
+
+        expect(container.querySelector('[aria-label="Job assistant panel"]')).not.toBeNull();
     });
 
     it("accumulates streamed AI suggestions and marks panel ready", async () => {
@@ -274,4 +293,3 @@ describe("App", () => {
         expect(container.textContent).toContain("Fallback suggestion");
     });
 });
-

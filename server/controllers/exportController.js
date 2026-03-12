@@ -1,4 +1,3 @@
-const puppeteer = require("puppeteer");
 const {
     AlignmentType,
     BorderStyle,
@@ -1034,6 +1033,7 @@ const exportPDF = async (req, res) => {
     try {
         const { cvData, template } = req.body;
         const htmlContent = generateHTML(cvData, template);
+        const puppeteer = require("puppeteer");
 
         const browser = await puppeteer.launch({
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,

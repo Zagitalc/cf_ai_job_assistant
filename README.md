@@ -1,285 +1,287 @@
-# OnClickCV - Local Development Setup
+# OnClickCV
 
-OnClickCV is a full-stack CV builder for creating professional CVs with live preview, template switching, and export to PDF/Word.
+OnClickCV is a CV builder that is being migrated into an AI-powered job application assistant on Cloudflare.
 
-## What's New in V3.1
+The current app has:
+- a React client in `client/`
+- a Cloudflare Worker backend in `worker/`
+- a legacy Express server in `server/` that is kept only for compatibility/reference during migration
 
-V3.1 introduces the new glass UX system and a single, coherent AI review journey:
+## Current Status
 
-- **Unified Glass UI (Desktop + Mobile)**:
-  - Dark navy mesh canvas across dashboard, editor, AI sheet, and preview
-  - Frosted glass cards/sheets and reduced visual noise in card controls
-  - Mobile moved from FAB speed-dial to fixed bottom navigation
-- **Simplified Dashboard Cards**:
-  - Per-card AI buttons removed
-  - One primary card action (Edit/Open) with compact section metadata
-  - Post-review section markers show where pending AI suggestions exist
-- **AI Review as Bottom Sheet**:
-  - Grouped suggestion cards by issue type (`impact`, `clarity`, `ats`, `length`)
-  - Diff-style presentation (`originalText` vs `suggestedText`)
-  - Per-suggestion **Apply** / **Dismiss** and confirmable **Apply All**
-- **Streaming AI Review Delivery**:
-  - New SSE endpoint: `POST /api/ai/review/stream`
-  - Event flow: `start` -> `overall` -> `suggestion` -> `complete` (or `error`)
-  - Client progressively renders suggestions with fallback to the existing `/api/ai/review` endpoint
-- **Backend Suggestion Contract Upgrade**:
-  - Suggestions now include `issueType` and `originalText` in normalized output
-  - Existing `/api/ai/review` endpoint remains for compatibility
+Migration progress against the Cloudflare plan:
+- Phase 1 complete: Worker bootstrap and Wrangler setup
+- Phase 2 complete: core API routes moved to the Worker
+- Phase 3 complete: CV persistence uses SQLite-backed Durable Objects
+- Phase 4 in progress: Workers AI review is implemented but still being tuned for structured output reliability
+- Phase 5 in progress: assistant chat is live and persisted, with ongoing prompt/response hardening
+- Phase 6 partial: Word export works, PDF export requires remote Cloudflare mode
+- Phase 7 pending: deployment hardening and cleanup
 
-## Prerequisites
+## Repo Layout
 
-Before starting, ensure you have the following installed on your machine:
-
-- **Node.js** (recommended v18+)
-- **npm** (comes with Node.js)
-- **Git** (optional but recommended)
-
-## Quick Start
-
-Follow these steps to set up and run OnClickCV locally:
-
-### Step 1: Clone the repository (if using Git)
-
-```bash
-git clone https://github.com/<your-username>/OnClickCV.git
+```text
+cf_ai_job_assistant/
+├── client/                React CV editor and assistant UI
+├── worker/                Cloudflare Worker, Durable Objects, Workers AI, Agent
+├── server/                Legacy Express backend (not primary runtime)
+├── fixtures/              Mock CV payloads for testing
+├── scripts/               Root dev scripts
+└── README.md
 ```
 
-Replace `<your-username>` with your GitHub username or repository URL.
+Important Worker files:
+- `worker/src/index.ts`: API routes and HTTP entrypoint
+- `worker/src/durableObject.ts`: CV persistence in Durable Object SQLite
+- `worker/src/agent.ts`: job assistant agent
+- `worker/src/services/aiReview.ts`: Workers AI review logic
+- `worker/src/services/export.ts`: Word/PDF export logic
 
-Alternatively, if you already have the code downloaded, skip this step.
+## Requirements
 
-### Step 2: Install dependencies
+- Node.js 18+
+- npm
+- Cloudflare account for remote AI/PDF testing
+- Wrangler-compatible Cloudflare auth for remote mode
 
-Navigate to the project directories and install the required dependencies:
+## Install
+
+From the repo root:
 
 ```bash
-# Install backend and frontend dependencies
-cd server && npm install
-cd ../client && npm install
-
-# Back to project root
-cd ..
+npm --prefix client install
+npm --prefix worker install
+npm --prefix server install
 ```
 
-### Step 3: One-click start (recommended)
+## Environment Files
 
-Run both backend and frontend with a single command from the project root:
+These files are intentionally ignored by git:
+- `.env`
+- `client/.env`
+- `server/.env`
+- `worker/.dev.vars`
+
+Use them as placeholders only. Do not commit secrets.
+
+Recommended setup:
+
+Root `.env`
+```env
+CLOUDFLARE_API_TOKEN=your_token_here
+CLOUDFLARE_ACCOUNT_ID=your_account_id_here
+```
+
+Client `client/.env`
+```env
+REACT_APP_API_BASE_URL=http://localhost:8787
+REACT_APP_AGENT_BASE_URL=http://localhost:8787
+```
+
+Worker `worker/.dev.vars`
+```env
+# Worker runtime vars only. Do not put Wrangler auth here unless you explicitly need them in Worker runtime.
+ENVIRONMENT=development
+AI_REVIEW_ENABLED=true
+ALLOWED_ORIGINS=http://localhost:3000,https://cf-ai-job-assistant.pages.dev
+PAGES_URL=https://cf-ai-job-assistant.pages.dev
+```
+
+Important:
+- Wrangler CLI auth should come from your shell environment or `wrangler login`, not from committed files.
+- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are for Wrangler, not for the React app.
+
+## Development Modes
+
+### Local mode
+
+Runs the Worker with local-only bindings and starts the client.
 
 ```bash
 npm run dev
 ```
 
-This script:
-- Checks that ports `4000` (backend) and `3000` (frontend) are free
-- Starts backend first
-- Waits until backend is listening
-- Starts frontend second
+What works:
+- CV save/load
+- preview
+- layout/testing
+- Word export
 
-### Step 4: Manual start (fallback)
+What is intentionally disabled:
+- AI Review
+- Assistant
+- PDF export
 
-If you prefer running each app separately:
+Ports:
+- client: `http://localhost:3000`
+- worker API: `http://localhost:8787`
 
-```bash
-# Terminal 1
-cd server
-npm start
+### Remote Cloudflare mode
 
-# Terminal 2
-cd client
-npm start
-```
-
-### Step 4.1: Enable AI Review (V3)
-
-AI review is feature-flagged and configured via environment files:
-
-`server/.env`
-
-```env
-PORT=4000
-MONGODB_URI=mongodb://localhost:27017/onclickcv
-AI_REVIEW_ENABLED=true
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-OPENAI_MODEL=gpt-5-mini
-```
-
-`client/.env`
-
-```env
-REACT_APP_API_BASE_URL=http://localhost:4000
-REACT_APP_AI_REVIEW_ENABLED=true
-```
-
-Important:
-- Keep `OPENAI_API_KEY` only in `server/.env` (never in `client/.env`).
-- Restart server/client after changing env files.
-
-### Step 5: Set up Tailwind CSS (Frontend)
-
-Tailwind CSS is already configured in this project. If you need to set it up again or want to understand the process, follow these steps **inside the `client` folder**:
+Runs the Worker with remote Workers AI and Browser Rendering bindings, then starts the client with AI features enabled.
 
 ```bash
-# Install Tailwind CSS and its dependencies
-npm install -D tailwindcss postcss autoprefixer
-
-# Initialize Tailwind config files
-npx tailwindcss init -p
+npm run dev:remote
 ```
 
-Edit `tailwind.config.js` to include:
+This is the mode required for:
+- AI Review
+- Assistant chat
+- PDF export
 
-```js
-module.exports = {
-  content: [
-    "./public/index.html",
-    "./src/**/*.{js,jsx,ts,tsx}"
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
-```
-
-In `src/index.css`, ensure you have only:
-
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-```
-
-You can now use Tailwind utility classes throughout your React components.
-
-The backend server runs by default on `http://localhost:4000`, and the frontend runs on `http://localhost:3000`.
-
-## Docker
-
-You can run OnClickCV as a single app container (frontend + backend) with MongoDB.
-
-### Build the image
-
-From project root:
+If you prefer separate terminals:
 
 ```bash
-docker build -t zach1328/onclickcv:latest .
+npm run dev:worker:remote
+npm run dev:client
 ```
 
-### Run with Docker Compose (recommended)
+Open the app at:
+
+```text
+http://localhost:3000
+```
+
+The Worker API itself is at:
+
+```text
+http://localhost:8787
+```
+
+## Cloudflare Auth
+
+Remote mode requires valid Cloudflare auth.
+
+Either:
 
 ```bash
-docker compose up -d --build
+npx wrangler login
 ```
 
-Open:
-- `http://localhost:4000`
-
-Stop:
+Or export a working API token:
 
 ```bash
-docker compose down
+export CLOUDFLARE_API_TOKEN=...
+export CLOUDFLARE_ACCOUNT_ID=...
 ```
 
-### Run with `docker run` (manual)
+Minimum practical token scope for this project:
+- `User / Memberships / Read`
+- `User / User Details / Read`
+- `Account / Workers Scripts / Edit`
+- `Account / Workers AI / Read`
+- `Account / Workers AI / Edit`
+- `Account / Browser Rendering / Edit`
+- `Account / Account Settings / Read`
+
+Optional:
+- `Account / Cloudflare Pages / Edit`
+- `Account / Workers Tail / Read`
+
+## Mock CV Fixture
+
+Use the included fixture to seed a realistic CV for testing.
+
+Save payload:
+- `fixtures/senior-software-engineer-save-payload.json`
+
+Raw CV data:
+- `fixtures/senior-software-engineer-cv.json`
+
+Save it into the Worker:
 
 ```bash
-docker network create onclickcv-net
-
-docker volume create onclickcv-mongo-data
-
-docker run -d \
-  --name onclickcv-mongo \
-  --network onclickcv-net \
-  -v onclickcv-mongo-data:/data/db \
-  mongo:7
-
-docker run -d \
-  --name onclickcv-app \
-  --network onclickcv-net \
-  -p 4000:4000 \
-  -e MONGODB_URI=mongodb://onclickcv-mongo:27017/onclickcv \
-  zach1328/onclickcv:latest
+curl -X POST http://localhost:8787/api/cv/save \
+  -H 'Content-Type: application/json' \
+  --data @fixtures/senior-software-engineer-save-payload.json
 ```
 
-Open:
-- `http://localhost:4000`
+Then in the UI:
+- open `Save / Load`
+- set `User ID` to `debug-senior-swe`
+- click `Load CV`
 
-### Run app container against MongoDB on your Mac host
+## Main API Routes
 
-If MongoDB is already running on your machine (outside Docker), use:
+Implemented on the Worker:
+- `GET /api/health`
+- `POST /api/cv/save`
+- `GET /api/cv/:userId`
+- `POST /api/ai/review`
+- `POST /api/ai/review/stream`
+- `POST /api/export/pdf`
+- `POST /api/export/word`
+- `GET /agents/job-assistant/:userId`
+
+## Testing
+
+Client tests:
 
 ```bash
-docker run -p 4000:4000 \
-  -e MONGODB_URI=mongodb://host.docker.internal:27017/onclickcv \
-  zach1328/onclickcv:latest
+CI=true npm --prefix client test -- --watchAll=false App.test.js
 ```
 
-### Push to Docker Hub
+Client production build:
 
 ```bash
-docker login
-docker push zach1328/onclickcv:latest
+npm --prefix client run build
 ```
 
-## Usage
+Worker typecheck:
 
-- Use the **CV Form** on the left to fill out your personal information, add skills dynamically, and add multiple education entries with rich text formatting.
-- Preview your CV changes in real-time on the right side with virtual A4 pagination.
-- Export your CV as a PDF or Word document by using the export buttons at the bottom of the form.
-
-## Project Structure
-
-```
-OnClickCV
-├── client
-│   ├── public
-│   └── src
-│       ├── components
-│       ├── templates
-│       ├── App.js
-│       └── index.css
-│
-└── server
-    ├── controllers
-    ├── routes
-    ├── package.json
-    └── server.js
+```bash
+./node_modules/.bin/tsc --noEmit -p tsconfig.json
 ```
 
-## Customization
-
-- **Templates:** Customize or add your own CV templates in `client/src/templates`.
-- **Styles:** Update styles globally in `client/src/index.css` or template-specific CSS. For modern UI, use [Tailwind CSS](https://tailwindcss.com/docs/utility-first).
+Run that from `worker/`.
 
 ## Troubleshooting
 
-- Why backend first? Frontend calls backend endpoints at `http://localhost:4000` directly (see `client/src/App.js`). If backend is not up, requests fail.
-- Recommended: use `npm run dev` from root so startup order is handled automatically.
-- If issues persist, verify ports (`4000` backend, `3000` frontend) are not occupied.
+### The UI loads but save/load fails
 
-## Test Commands
+Check that the Worker is running on `localhost:8787`.
 
-Run these from project root:
+Health check:
 
 ```bash
-# Client tests (targeted)
-cd client
-npm test -- --watchAll=false --runInBand src/App.test.js src/components/CVForm.test.js src/components/CVPreview.test.js
-
-# Server tests (targeted)
-cd ../server
-SKIP_DB_SETUP=1 npm test -- --runInBand tests/export.controller.test.js
+curl http://localhost:8787/api/health
 ```
 
-## Repo Hygiene (Avoid Leaks)
+### AI buttons are missing
 
-- Do not commit runtime cache artifacts from `client/node_modules/.cache/*`.
-- Commit only source code, test files, and intentional config/docs changes.
-- Keep environment files (`.env*`) out of version control.
+That is expected in local mode. Use:
 
-## Dependencies Used
+```bash
+npm run dev:remote
+```
 
-- **Frontend:** React, React Quill (WYSIWYG Editor), Tailwind CSS, axios (for requests, optional)
-- **Backend:** Node.js, Express, Puppeteer (PDF generation), docx (Word generation), CORS
+### PDF export is unavailable
 
----
+That is expected in local mode. PDF export depends on Cloudflare Browser Rendering in remote mode.
+
+### AI review returns a fallback score or fallback summary
+
+That means the Worker could not normalize the Workers AI output cleanly.
+
+In remote mode, Wrangler now logs debug lines like:
+- `[ai-review-debug] ...`
+- `[assistant-debug] ...`
+
+Use those logs to inspect:
+- truncation
+- malformed JSON
+- wrong response envelope
+- schema drift
+
+### Assistant replies appear but suggested patches stay empty
+
+The UI now refreshes the persisted agent snapshot when a chat request completes. If suggestions still do not appear:
+- clear the chat
+- retry with a fresh `userId`
+- inspect `[assistant-debug] response.normalized`
+
+## Notes
+
+- `server/` still exists, but it is not the target runtime going forward.
+- `client/build/`, `node_modules/`, `.env*`, and `.dev.vars*` are ignored and should not be committed.
+- Before pushing, review `git status` and make sure no secret-bearing local files are staged.

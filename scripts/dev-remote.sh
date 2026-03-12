@@ -39,17 +39,17 @@ trap cleanup EXIT INT TERM
 check_port_free "${API_PORT}"
 check_port_free "${FRONTEND_PORT}"
 
-echo "Starting Worker API on port ${API_PORT}..."
-npm --prefix worker run dev &
+echo "Starting remote Worker API on port ${API_PORT}..."
+npm --prefix worker run dev:remote &
 API_PID=$!
 
-echo "Waiting for Worker API to accept connections..."
+echo "Waiting for remote Worker API to accept connections..."
 if ! wait_for_backend; then
-  echo "Worker API did not start on port ${API_PORT} within 30 seconds."
+  echo "Remote Worker API did not start on port ${API_PORT} within 30 seconds."
   exit 1
 fi
 
 echo "Starting frontend on port ${FRONTEND_PORT}..."
-export REACT_APP_AI_REVIEW_ENABLED=false
-export REACT_APP_PDF_EXPORT_ENABLED=false
+export REACT_APP_AI_REVIEW_ENABLED=true
+export REACT_APP_PDF_EXPORT_ENABLED=true
 npm --prefix client start

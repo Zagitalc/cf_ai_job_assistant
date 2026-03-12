@@ -1,0 +1,88 @@
+{
+  "userId": "debug-senior-swe",
+  "cvData": {
+    "name": "Alex Mercer",
+    "email": "alex.mercer@example.com",
+    "phone": "+1 (415) 555-0147",
+    "linkedin": "https://www.linkedin.com/in/alexmercer-dev",
+    "summary": "Senior Software Development Engineer with 11+ years building cloud-native platforms, developer tooling, and AI-assisted workflows. Strong record leading migrations from monoliths to event-driven systems, improving release reliability, and mentoring engineers across product and platform teams. Comfortable moving between architecture, hands-on implementation, incident response, and cross-functional delivery.",
+    "workExperience": [
+      "<p><strong>Senior Software Development Engineer, HelioStack</strong> | London, UK | Mar 2022 - Present</p><ul><li>Led the migration of a multi-tenant document workflow platform from Kubernetes-hosted Node services to edge-first services on Cloudflare Workers, cutting median API latency by 38% and infrastructure spend by 24%.</li><li>Designed an AI-assisted job application workflow using structured resume analysis, streaming review responses, and browser-based export automation for PDF and DOCX output.</li><li>Introduced contract testing, canary release gates, and service scorecards that reduced production regressions by 42% over four quarters.</li><li>Mentored 6 engineers on system design, incident review, and performance tuning while acting as technical lead for two cross-team platform initiatives.</li></ul>",
+      "<p><strong>Staff Software Engineer, Northstar Commerce</strong> | Remote | Jan 2019 - Feb 2022</p><ul><li>Rebuilt checkout orchestration and order event pipelines with TypeScript, Kafka, and Postgres, supporting 4x transaction growth without major availability incidents.</li><li>Created internal developer platform tooling for preview environments, rollout controls, and observability dashboards, decreasing mean time to recovery from 54 minutes to 18 minutes.</li><li>Partnered with security and compliance teams to implement audit logging, secrets rotation, and policy enforcement across CI/CD systems.</li></ul>",
+      "<p><strong>Software Engineer, Gridline Labs</strong> | San Francisco, CA | Jul 2014 - Dec 2018</p><ul><li>Built customer-facing analytics and workflow APIs in Node.js and Python for logistics clients processing millions of shipment events per day.</li><li>Improved query performance with caching, indexing, and asynchronous job scheduling, reducing dashboard load times from 11 seconds to under 2 seconds.</li><li>Contributed to frontend architecture in React, including reusable component patterns for reporting, search, and admin tooling.</li></ul>"
+    ],
+    "volunteerExperience": [
+      "<p><strong>Volunteer Mentor, CodeBridge</strong> | 2021 - Present</p><ul><li>Coach early-career developers on interview preparation, portfolio reviews, and backend engineering fundamentals.</li><li>Run monthly mock system design sessions focused on APIs, scaling, and debugging discipline.</li></ul>"
+    ],
+    "education": [
+      {
+        "degree": "BSc Computer Science",
+        "school": "University of Manchester",
+        "location": "Manchester, UK",
+        "startDate": "2009-09-01",
+        "endDate": "2013-06-30",
+        "additionalInfo": "<p>Graduated with First Class Honours. Final-year dissertation focused on distributed systems fault tolerance and event consistency models.</p>"
+      }
+    ],
+    "skills": [
+      "TypeScript",
+      "JavaScript",
+      "Node.js",
+      "React",
+      "Cloudflare Workers",
+      "Durable Objects",
+      "Hono",
+      "PostgreSQL",
+      "Kafka",
+      "Redis",
+      "OpenTelemetry",
+      "Docker",
+      "CI/CD",
+      "System Design",
+      "Technical Leadership"
+    ],
+    "projects": [
+      "<p><strong>Edge Resume Copilot</strong></p><ul><li>Built a prototype assistant for resume tailoring and application prep using Workers AI, structured JSON review output, and resumable chat state.</li><li>Added patch-based editing suggestions so users could apply AI recommendations directly to editable CV fields.</li></ul>",
+      "<p><strong>Deploy Radar</strong></p><ul><li>Created an internal release health dashboard aggregating deploy metadata, test coverage, and error budgets across 40+ services.</li><li>Used event streaming and lightweight anomaly detection to surface risky releases before customer impact.</li></ul>"
+    ],
+    "certifications": [
+      "<p><strong>AWS Certified Solutions Architect - Associate</strong> | 2021</p>",
+      "<p><strong>Google Professional Cloud Developer</strong> | 2020</p>"
+    ],
+    "awards": [
+      "<p><strong>Engineering Impact Award</strong> | HelioStack | 2024</p><p>Recognized for leading the platform modernization program and improving service reliability during a critical product expansion.</p>"
+    ],
+    "additionalInfo": "<p>Eligible to work in the UK and US. Open to staff-level backend, platform, and AI application engineering roles. Regularly write architecture notes and interview loops for engineering hiring panels.</p>",
+    "interests": "Distributed systems, developer experience, applied AI products, distance running",
+    "sectionLayout": {
+      "left": [
+        "personal",
+        "skills",
+        "certifications",
+        "awards"
+      ],
+      "right": [
+        "summary",
+        "work",
+        "volunteer",
+        "education",
+        "projects",
+        "additional-info"
+      ],
+      "editorCardOrder": [
+        "personal",
+        "summary",
+        "work",
+        "volunteer",
+        "education",
+        "projects",
+        "skills",
+        "certifications",
+        "awards",
+        "additional-info",
+        "template-export",
+        "save-load"
+      ]
+    }
+  }
+}

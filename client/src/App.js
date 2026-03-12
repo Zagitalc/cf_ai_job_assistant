@@ -3,6 +3,7 @@ import CVForm from "./components/CVForm";
 import CVPreview from "./components/CVPreview";
 import AIReviewPanel from "./components/AIReviewPanel";
 import AIReviewModal from "./components/AIReviewModal";
+import JobAssistantPanel from "./components/JobAssistantPanel";
 import MobileSpeedDial from "./components/MobileSpeedDial";
 import { TEMPLATE_OPTIONS } from "./constants/templates";
 import { getDefaultSectionLayout, normalizeSectionLayout } from "./utils/sectionLayout";
@@ -12,10 +13,13 @@ import { consumeSse } from "./utils/aiStream";
 import "./index.css";
 import "react-quill/dist/quill.snow.css";
 
+const getBrowserOrigin = () => (typeof window !== "undefined" ? window.location.origin : "");
 const API_BASE_URL =
-    process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:4000");
+    process.env.REACT_APP_API_BASE_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:8787");
+const AGENT_BASE_URL = process.env.REACT_APP_AGENT_BASE_URL || API_BASE_URL || getBrowserOrigin();
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 const isAiReviewEnabled = () => String(process.env.REACT_APP_AI_REVIEW_ENABLED || "").toLowerCase() === "true";
+const isPdfExportEnabled = () => String(process.env.REACT_APP_PDF_EXPORT_ENABLED || "true").toLowerCase() !== "false";
 const isMobileViewport = () => (typeof window !== "undefined" ? window.innerWidth <= 1023 : false);
 
 const getInitialCvData = () => ({
@@ -141,7 +145,9 @@ const buildSectionMarkers = (suggestions = []) => {
 
 function App() {
     const aiReviewEnabled = isAiReviewEnabled();
+    const pdfExportEnabled = isPdfExportEnabled();
     const [cvData, setCvData] = useState(getInitialCvData);
+    const [userId, setUserId] = useState("");
     const [template, setTemplate] = useState("A");
     const [isExporting, setIsExporting] = useState(false);
     const [exportingFormat, setExportingFormat] = useState("");
@@ -149,6 +155,7 @@ function App() {
     const [showAIReviewModal, setShowAIReviewModal] = useState(false);
     const [isMobile, setIsMobile] = useState(isMobileViewport);
     const [mobileView, setMobileView] = useState("stack");
+    const [mobileAiView, setMobileAiView] = useState("review");
     const [desktopRightView, setDesktopRightView] = useState("preview");
     const [exportFileBaseName, setExportFileBaseName] = useState("");
     const [layoutMetrics, setLayoutMetrics] = useState({
@@ -184,6 +191,7 @@ function App() {
         if (!aiReviewEnabled) {
             setDesktopRightView("preview");
             setShowAIReviewModal(false);
+            setMobileAiView("review");
         }
     }, [aiReviewEnabled]);
 
@@ -217,6 +225,11 @@ function App() {
     );
 
     const handleExport = async (format, requestedBaseName = "") => {
+        if (format === "pdf" && !pdfExportEnabled) {
+            setExportError("PDF export is unavailable in local-only dev mode. Use remote worker dev for Browser Rendering.");
+            return;
+        }
+
         setIsExporting(true);
         setExportingFormat(format);
         setExportError(null);
@@ -238,7 +251,16 @@ function App() {
             });
 
             if (!response.ok) {
-                throw new Error(`${format.toUpperCase()} export failed`);
+                let errorMessage = `${format.toUpperCase()} export failed`;
+                try {
+                    const errorPayload = await response.json();
+                    if (typeof errorPayload?.error === "string" && errorPayload.error.trim()) {
+                        errorMessage = errorPayload.error.trim();
+                    }
+                } catch (_error) {
+                    // Fall back to the generic error message.
+                }
+                throw new Error(errorMessage);
             }
 
             const blob = await response.blob();
@@ -259,7 +281,33 @@ function App() {
         }
     };
 
-    const handleSaveCV = async (userId) => {
+    const applySuggestionToCv = useCallback((suggestion) => {
+        if (!suggestion) {
+            return { ok: false, error: "Suggestion is missing." };
+        }
+
+        const patchResult = applySuggestionPatch(cvData, suggestion.fieldPath, suggestion.suggestedText);
+        if (!patchResult.ok) {
+            const error = patchResult.error || "Failed to apply suggestion.";
+            setAiReviewState((statePrev) => ({
+                ...statePrev,
+                status: "error",
+                error
+            }));
+            return { ok: false, error };
+        }
+
+        setCvData(patchResult.data);
+        return { ok: true };
+    }, [cvData]);
+
+    const handleSaveCV = async () => {
+        const normalizedUserId = String(userId || "").trim();
+        if (!normalizedUserId) {
+            alert("User ID is required to save CV data.");
+            return;
+        }
+
         try {
             const normalized = normalizeCvDataShape(cvData);
             const response = await fetch(apiUrl("/api/cv/save"), {
@@ -270,7 +318,7 @@ function App() {
                         ...normalized,
                         sectionLayout: normalizeSectionLayout(normalized.sectionLayout, normalized)
                     },
-                    userId
+                    userId: normalizedUserId
                 })
             });
 
@@ -283,9 +331,15 @@ function App() {
         }
     };
 
-    const handleLoadCV = async (userId) => {
+    const handleLoadCV = async () => {
+        const normalizedUserId = String(userId || "").trim();
+        if (!normalizedUserId) {
+            alert("User ID is required to load CV data.");
+            return;
+        }
+
         try {
-            const response = await fetch(apiUrl(`/api/cv/${userId}`));
+            const response = await fetch(apiUrl(`/api/cv/${normalizedUserId}`));
             if (!response.ok) {
                 throw new Error("CV not found");
             }
@@ -526,22 +580,11 @@ function App() {
             return;
         }
 
-        setCvData((prev) => {
-            const patchResult = applySuggestionPatch(prev, suggestion.fieldPath, suggestion.suggestedText);
-            if (!patchResult.ok) {
-                setAiReviewState((statePrev) => ({
-                    ...statePrev,
-                    status: "error",
-                    error: patchResult.error || "Failed to apply suggestion."
-                }));
-                return prev;
-            }
-
-            return patchResult.data;
-        });
-
-        markSuggestionStatus(suggestion.id, "accepted");
-    }, [markSuggestionStatus]);
+        const result = applySuggestionToCv(suggestion);
+        if (result.ok) {
+            markSuggestionStatus(suggestion.id, "accepted");
+        }
+    }, [applySuggestionToCv, markSuggestionStatus]);
 
     const handleDismissFullSuggestion = useCallback((suggestion) => {
         if (!suggestion) {
@@ -591,6 +634,7 @@ function App() {
         }
 
         if (isMobile) {
+            setMobileAiView("review");
             setShowAIReviewModal(true);
             return;
         }
@@ -615,6 +659,8 @@ function App() {
                             <CVForm
                                 cvData={cvData}
                                 setCvData={setCvData}
+                                userId={userId}
+                                onUserIdChange={setUserId}
                                 sectionLayout={normalizedSectionLayout}
                                 setSectionLayout={updateSectionLayout}
                                 template={template}
@@ -624,6 +670,7 @@ function App() {
                                 isExporting={isExporting}
                                 exportingFormat={exportingFormat}
                                 exportError={exportError}
+                                pdfExportEnabled={pdfExportEnabled}
                                 exportFileBaseName={exportFileBaseName}
                                 onExportFileBaseNameChange={setExportFileBaseName}
                                 exportFileSuggestions={exportFileSuggestions}
@@ -657,6 +704,13 @@ function App() {
                                     >
                                         AI Review
                                     </button>
+                                    <button
+                                        type="button"
+                                        className={`panel-tab-btn ${desktopRightView === "assistant" ? "active" : ""}`}
+                                        onClick={() => setDesktopRightView("assistant")}
+                                    >
+                                        Assistant
+                                    </button>
                                 </div>
                             ) : null}
 
@@ -682,6 +736,20 @@ function App() {
                                     onDismissSuggestion={handleDismissFullSuggestion}
                                     onApplyAll={handleApplyAllSuggestions}
                                 />
+                            ) : !isMobile && aiReviewEnabled && desktopRightView === "assistant" ? (
+                                <JobAssistantPanel
+                                    userId={userId}
+                                    cvData={cvData}
+                                    jobDescription={aiReviewState.jobDescription}
+                                    onJobDescriptionChange={(jobDescription) =>
+                                        setAiReviewState((prev) => ({
+                                            ...prev,
+                                            jobDescription
+                                        }))
+                                    }
+                                    onApplySuggestion={applySuggestionToCv}
+                                    agentHost={AGENT_BASE_URL}
+                                />
                             ) : (
                                 <CVPreview
                                     cvData={cvData}
@@ -700,33 +768,72 @@ function App() {
                     aiEnabled={aiReviewEnabled}
                     activeView={mobileView}
                     onChangeView={setMobileView}
-                    onOpenAI={() => setShowAIReviewModal(true)}
+                    onOpenAI={() => {
+                        setMobileAiView("review");
+                        setShowAIReviewModal(true);
+                    }}
                     hasPendingSuggestions={hasPendingSuggestions}
                 />
             ) : null}
 
-            <AIReviewModal isOpen={isMobile && showAIReviewModal} onClose={() => setShowAIReviewModal(false)}>
-                <AIReviewPanel
-                    reviewState={aiReviewState}
-                    onRunReview={handleRunAIReview}
-                    onModeChange={(mode) =>
-                        setAiReviewState((prev) => ({
-                            ...prev,
-                            mode,
-                            error: "",
-                            data: mode === prev.mode ? prev.data : null
-                        }))
-                    }
-                    onJobDescriptionChange={(jobDescription) =>
-                        setAiReviewState((prev) => ({
-                            ...prev,
-                            jobDescription
-                        }))
-                    }
-                    onAcceptSuggestion={handleAcceptFullSuggestion}
-                    onDismissSuggestion={handleDismissFullSuggestion}
-                    onApplyAll={handleApplyAllSuggestions}
-                />
+            <AIReviewModal
+                isOpen={isMobile && showAIReviewModal}
+                onClose={() => setShowAIReviewModal(false)}
+                title="AI Workspace"
+            >
+                <div className="preview-panel-tabs no-print modal-ai-tabs">
+                    <button
+                        type="button"
+                        className={`panel-tab-btn ${mobileAiView === "review" ? "active" : ""}`}
+                        onClick={() => setMobileAiView("review")}
+                    >
+                        AI Review
+                    </button>
+                    <button
+                        type="button"
+                        className={`panel-tab-btn ${mobileAiView === "assistant" ? "active" : ""}`}
+                        onClick={() => setMobileAiView("assistant")}
+                    >
+                        Assistant
+                    </button>
+                </div>
+                {mobileAiView === "review" ? (
+                    <AIReviewPanel
+                        reviewState={aiReviewState}
+                        onRunReview={handleRunAIReview}
+                        onModeChange={(mode) =>
+                            setAiReviewState((prev) => ({
+                                ...prev,
+                                mode,
+                                error: "",
+                                data: mode === prev.mode ? prev.data : null
+                            }))
+                        }
+                        onJobDescriptionChange={(jobDescription) =>
+                            setAiReviewState((prev) => ({
+                                ...prev,
+                                jobDescription
+                            }))
+                        }
+                        onAcceptSuggestion={handleAcceptFullSuggestion}
+                        onDismissSuggestion={handleDismissFullSuggestion}
+                        onApplyAll={handleApplyAllSuggestions}
+                    />
+                ) : (
+                    <JobAssistantPanel
+                        userId={userId}
+                        cvData={cvData}
+                        jobDescription={aiReviewState.jobDescription}
+                        onJobDescriptionChange={(jobDescription) =>
+                            setAiReviewState((prev) => ({
+                                ...prev,
+                                jobDescription
+                            }))
+                        }
+                        onApplySuggestion={applySuggestionToCv}
+                        agentHost={AGENT_BASE_URL}
+                    />
+                )}
             </AIReviewModal>
         </div>
     );

@@ -1,0 +1,35 @@
+name = "cf-ai-job-assistant"
+main = "src/index.ts"
+compatibility_date = "2026-03-12"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[ai]
+binding = "AI"
+remote = true
+
+[browser]
+binding = "BROWSER"
+remote = true
+
+[vars]
+ENVIRONMENT = "development"
+AI_REVIEW_ENABLED = "true"
+AI_REVIEW_DEBUG = "true"
+AI_ASSISTANT_DEBUG = "true"
+ALLOWED_ORIGINS = "http://localhost:3000,https://cf-ai-job-assistant.pages.dev"
+PAGES_URL = "https://cf-ai-job-assistant.pages.dev"
+
+[[durable_objects.bindings]]
+name = "CV_STORE"
+class_name = "CVStoreDurableObject"
+
+[[durable_objects.bindings]]
+name = "JobAssistant"
+class_name = "JobAssistant"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CVStoreDurableObject", "JobAssistant"]

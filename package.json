@@ -3,7 +3,13 @@
   "private": true,
   "scripts": {
     "dev": "bash scripts/dev.sh",
+    "dev:remote": "bash scripts/dev-remote.sh",
+    "dev:worker": "npm --prefix worker run dev",
+    "dev:worker:remote": "npm --prefix worker run dev:remote",
+    "dev:server": "npm --prefix server start",
+    "dev:client": "npm --prefix client start",
     "start:server": "npm --prefix server start",
-    "start:client": "npm --prefix client start"
+    "start:client": "npm --prefix client start",
+    "deploy:worker": "npm --prefix worker run deploy"
   }
 }

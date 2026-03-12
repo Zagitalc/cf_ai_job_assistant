@@ -1,6 +1,6 @@
 import React from "react";
 
-const AIReviewModal = ({ isOpen, onClose, children }) => {
+const AIReviewModal = ({ isOpen, onClose, children, title = "AI Workspace" }) => {
     if (!isOpen) {
         return null;
     }
@@ -12,7 +12,7 @@ const AIReviewModal = ({ isOpen, onClose, children }) => {
                     <button type="button" onClick={onClose} className="preview-modal-btn preview-modal-close">
                         Done
                     </button>
-                    <span className="preview-modal-title">AI Review</span>
+                    <span className="preview-modal-title">{title}</span>
                 </div>
                 <div className="ai-modal-body">{children}</div>
             </div>

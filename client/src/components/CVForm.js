@@ -67,6 +67,8 @@ const formatDateRange = (startDate, endDate) => {
 const CVForm = ({
     cvData,
     setCvData,
+    userId,
+    onUserIdChange,
     sectionLayout,
     setSectionLayout,
     template,
@@ -76,6 +78,7 @@ const CVForm = ({
     isExporting,
     exportingFormat,
     exportError,
+    pdfExportEnabled = true,
     exportFileBaseName,
     onExportFileBaseNameChange,
     exportFileSuggestions,
@@ -102,7 +105,6 @@ const CVForm = ({
     const [newWork, setNewWork] = useState("");
     const [newVolunteer, setNewVolunteer] = useState("");
     const [newProject, setNewProject] = useState("");
-    const [userId, setUserId] = useState("");
     const [openSimpleSection, setOpenSimpleSection] = useState("personal");
     const [activeComplexSection, setActiveComplexSection] = useState("");
     const [draggingSectionId, setDraggingSectionId] = useState("");
@@ -347,7 +349,7 @@ const CVForm = ({
         }
 
         if (sectionId === "save-load") {
-            return userId ? "Ready" : "Optional";
+            return userId ? "Ready" : "Required";
         }
 
         const hasData = SECTION_REGISTRY[sectionId]?.dataPresenceChecker?.(cvData);
@@ -806,19 +808,28 @@ const CVForm = ({
                     />
 
                     <div className="button-row">
-                        <button type="button" onClick={() => onExport("pdf", exportFileBaseName)} disabled={isExporting} className="primary-btn">
+                        <button
+                            type="button"
+                            onClick={() => onExport("pdf", exportFileBaseName)}
+                            disabled={isExporting || !pdfExportEnabled}
+                            className="primary-btn"
+                        >
                             {isExporting && exportingFormat === "pdf" ? "Generating PDF..." : "Export PDF"}
                         </button>
                         <button type="button" onClick={() => onExport("word", exportFileBaseName)} disabled={isExporting} className="primary-btn">
                             {isExporting && exportingFormat === "word" ? "Generating Word..." : "Export Word"}
                         </button>
                     </div>
+                    {!pdfExportEnabled ? (
+                        <div className="form-meta">PDF export requires remote worker dev with Browser Rendering enabled.</div>
+                    ) : null}
                     {exportError ? <div className="form-error">{exportError}</div> : null}
                 </>
             );
         }
 
         if (sectionId === "save-load") {
+            const hasUserId = String(userId || "").trim().length > 0;
             return (
                 <>
                     <label htmlFor="save-user-id" className="form-label">User ID</label>
@@ -827,13 +838,16 @@ const CVForm = ({
                             id="save-user-id"
                             type="text"
                             value={userId}
-                            onChange={(event) => setUserId(event.target.value)}
+                            onChange={(event) => onUserIdChange && onUserIdChange(event.target.value)}
                             placeholder="Enter User ID"
                             className="form-input"
                         />
-                        <button type="button" onClick={() => onSave && userId && onSave(userId)} className="add-btn">Save CV</button>
-                        <button type="button" onClick={() => onLoad && userId && onLoad(userId)} className="add-btn">Load CV</button>
+                        <button type="button" onClick={() => onSave && onSave()} disabled={!hasUserId} className="add-btn">Save CV</button>
+                        <button type="button" onClick={() => onLoad && onLoad()} disabled={!hasUserId} className="add-btn">Load CV</button>
                     </div>
+                    {!hasUserId ? (
+                        <div className="form-meta">Enter a user ID to enable Cloudflare save/load and assistant memory.</div>
+                    ) : null}
                 </>
             );
         }

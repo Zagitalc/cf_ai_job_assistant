@@ -64,6 +64,13 @@ const AIReviewPanel = ({
 
     const pendingSuggestions = (data?.topFixes || []).filter((item) => item.status !== "dismissed" && item.status !== "accepted");
     const showFooterActions = status === "ready" && pendingSuggestions.length > 0;
+    const hasReviewData = Boolean(data);
+    const numericScore = Number(data?.overall?.score || 0);
+    const showScoreBubble = Number.isFinite(numericScore) && (numericScore > 0 || status === "ready");
+    const overallTierLabel = isLoading && !showScoreBubble ? "Review In Progress" : (data?.overall?.tier || "Review Ready");
+    const overallSummary = isLoading && !showScoreBubble
+        ? "Analyzing your CV and preparing targeted feedback."
+        : (data?.overall?.summary || "Review completed.");
     const groupedSuggestions = useMemo(() => {
         const grouped = {};
         (data?.topFixes || []).forEach((suggestion) => {
@@ -77,6 +84,7 @@ const AIReviewPanel = ({
     }, [data?.topFixes]);
 
     const issueTypes = Object.keys(groupedSuggestions).sort(sortByIssueOrder);
+    const sectionEntries = Object.entries(data?.bySection || {}).filter(([, value]) => value && (value.strengths?.length || value.suggestions?.length));
 
     return (
         <section className="ai-review-panel glass-sheet" aria-label="AI review panel">
@@ -120,56 +128,128 @@ const AIReviewPanel = ({
 
             {hasError ? <div className="form-error">{reviewState.error}</div> : null}
 
-            {data && issueTypes.length > 0 ? (
-                <div className="ai-review-results">
-                    {issueTypes.map((type) => (
-                        <div key={type} className="ai-group">
-                            <div className="ai-group-head">
-                                <h3>{ISSUE_LABELS[type] || "Suggestions"}</h3>
-                                <span>{groupedSuggestions[type].length} Suggestions</span>
+            {hasReviewData ? (
+                <>
+                    <div className="ai-overall-card">
+                        {showScoreBubble ? (
+                            <div className="ai-overall-score">{Math.max(0, Math.round(numericScore))}</div>
+                        ) : (
+                            <div className="ai-overall-progress" aria-hidden="true">
+                                <span className="btn-spinner" />
                             </div>
-                            <div className="ai-group-list">
-                                {groupedSuggestions[type].map((suggestion) => (
-                                    <article key={suggestion.id} className={`ai-suggestion-sheet-card status-${suggestion.status || "pending"}`}>
-                                        <div className="ai-suggestion-card-head">
-                                            <span className="ai-issue-pill">{ISSUE_LABELS[type] || "Issue"}</span>
-                                            <button
-                                                type="button"
-                                                className="dismiss-icon-btn"
-                                                onClick={() => onDismissSuggestion && onDismissSuggestion(suggestion)}
-                                                disabled={suggestion.status === "dismissed"}
-                                                aria-label="Dismiss suggestion"
-                                            >
-                                                ×
-                                            </button>
+                        )}
+                        <div>
+                            <div className="ai-overall-tier">{overallTierLabel}</div>
+                            <p>{overallSummary}</p>
+                        </div>
+                    </div>
+
+                    {data?.jobMatch ? (
+                        <div className="ai-jobmatch-results">
+                            <h4>Job Match</h4>
+                            <div className="ai-jobmatch-score">Estimated match score: {Math.max(0, Math.round(Number(data.jobMatch.score || 0)))}</div>
+                            <div className="ai-jobmatch-grid">
+                                {Array.isArray(data.jobMatch.roleFitNotes) && data.jobMatch.roleFitNotes.length > 0 ? (
+                                    <div className="entry-list-item">
+                                        <div>
+                                            <strong>Role Fit Notes</strong>
+                                            <p>{data.jobMatch.roleFitNotes.join(" ")}</p>
                                         </div>
-                                        <h4>{suggestion.title || "Suggestion"}</h4>
-                                        <DiffText originalText={suggestion.originalText} suggestedText={suggestion.suggestedText} />
-                                        <p className="ai-suggestion-reason">{suggestion.reason}</p>
-                                        <div className="ai-suggestion-actions">
-                                            <button
-                                                type="button"
-                                                className="ai-action-btn"
-                                                onClick={() => onAcceptSuggestion && onAcceptSuggestion(suggestion)}
-                                                disabled={suggestion.status === "accepted"}
-                                            >
-                                                {suggestion.status === "accepted" ? "Applied" : "Apply Change"}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="ai-action-btn ghost"
-                                                onClick={() => onDismissSuggestion && onDismissSuggestion(suggestion)}
-                                                disabled={suggestion.status === "dismissed"}
-                                            >
-                                                {suggestion.status === "dismissed" ? "Dismissed" : "Dismiss"}
-                                            </button>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {issueTypes.length > 0 ? (
+                        <div className="ai-review-results">
+                            {issueTypes.map((type) => (
+                                <div key={type} className="ai-group">
+                                    <div className="ai-group-head">
+                                        <h3>{ISSUE_LABELS[type] || "Suggestions"}</h3>
+                                        <span>{groupedSuggestions[type].length} Suggestions</span>
+                                    </div>
+                                    <div className="ai-group-list">
+                                        {groupedSuggestions[type].map((suggestion) => (
+                                            <article key={suggestion.id} className={`ai-suggestion-sheet-card status-${suggestion.status || "pending"}`}>
+                                                <div className="ai-suggestion-card-head">
+                                                    <span className="ai-issue-pill">{ISSUE_LABELS[type] || "Issue"}</span>
+                                                    <button
+                                                        type="button"
+                                                        className="dismiss-icon-btn"
+                                                        onClick={() => onDismissSuggestion && onDismissSuggestion(suggestion)}
+                                                        disabled={suggestion.status === "dismissed"}
+                                                        aria-label="Dismiss suggestion"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                                <h4>{suggestion.title || "Suggestion"}</h4>
+                                                <DiffText originalText={suggestion.originalText} suggestedText={suggestion.suggestedText} />
+                                                <p className="ai-suggestion-reason">{suggestion.reason}</p>
+                                                <div className="ai-suggestion-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="ai-action-btn"
+                                                        onClick={() => onAcceptSuggestion && onAcceptSuggestion(suggestion)}
+                                                        disabled={suggestion.status === "accepted"}
+                                                    >
+                                                        {suggestion.status === "accepted" ? "Applied" : "Apply Change"}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="ai-action-btn ghost"
+                                                        onClick={() => onDismissSuggestion && onDismissSuggestion(suggestion)}
+                                                        disabled={suggestion.status === "dismissed"}
+                                                    >
+                                                        {suggestion.status === "dismissed" ? "Dismissed" : "Dismiss"}
+                                                    </button>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : !isLoading ? (
+                        <div className="ai-empty-state warm">
+                            Review completed. No concrete patch suggestions were returned, but the summary and section notes below still reflect the result.
+                        </div>
+                    ) : null}
+
+                    {sectionEntries.length > 0 ? (
+                        <div>
+                            <h3 className="ai-section-heading">Section Notes</h3>
+                            <div className="ai-review-results">
+                                {sectionEntries.map(([sectionId, value]) => (
+                                    <div key={sectionId} className="ai-group">
+                                        <div className="ai-group-head">
+                                            <h3>{sectionId}</h3>
                                         </div>
-                                    </article>
+                                        <div className="entry-list">
+                                            {Array.isArray(value.strengths) && value.strengths.length > 0 ? (
+                                                <div className="entry-list-item">
+                                                    <div>
+                                                        <strong>Strengths</strong>
+                                                        <p>{value.strengths.join(" ")}</p>
+                                                    </div>
+                                                </div>
+                                            ) : null}
+                                            {Array.isArray(value.suggestions) && value.suggestions.length > 0 ? (
+                                                <div className="entry-list-item">
+                                                    <div>
+                                                        <strong>Suggestions</strong>
+                                                        <p>{value.suggestions.join(" ")}</p>
+                                                    </div>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         </div>
-                    ))}
-                </div>
+                    ) : null}
+                </>
             ) : (
                 <div className="ai-empty-state warm">
                     Your CV looks good to review. Run AI Review to get targeted rewrites by section.
