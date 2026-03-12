@@ -1,367 +1,165 @@
-follow the document to transform this current CV maker to a AI-powered job application assistant built on Cloudflare's infrastructure.
+# PROMPTS.md
 
-# CF_AI_JOB_ASSISTANT — Cloudflare Migration Plan
-> Instructions for an AI coding agent. Follow phases in order. Do not skip ahead.
-> Git migration is already complete. The repo exists at https://github.com/Zagitalc/cf_ai_job_assistant.
+This document records the AI-assisted prompts used during the development of `cf_ai_job_assistant`, in line with the Cloudflare internship assignment guidance.
 
----
+AI tools used:
+- Claude (Anthropic)
+- Codex
 
-## Project Context
-
-This is **OnClickCV / cf_ai_job_assistant** — a full-stack CV builder with AI review features.
-
-Current stack:
-- `client/` — React + Tailwind frontend, runs on port 3000
-- `server/` — Node.js + Express backend, runs on port 4000
-- MongoDB for data persistence
-- OpenAI GPT for AI review (SSE streaming)
-- Puppeteer for PDF export
-- Docker for local dev and deployment
-
-Target stack:
-- `client/` — React + Tailwind → **Cloudflare Pages** (no changes to components)
-- `server/` → **Cloudflare Worker** (replaces Express)
-- MongoDB → **Durable Object built-in SQL** (replaces MongoDB entirely)
-- OpenAI → **Workers AI, Llama 3.3** (replaces OpenAI calls)
-- Puppeteer → **Cloudflare Browser Rendering** (replaces Puppeteer)
-- New: **AIChatAgent** (Agents SDK) for stateful multi-turn job assistant chat
+Only prompts are included below. Responses are intentionally omitted.
 
 ---
 
-## Full Migration Phases (Overview)
+## Project Planning And Architecture
 
-| Phase | What | Key Output |
-|-------|------|------------|
-| **1** | Tooling setup + hello-world Worker | `worker/` directory, `wrangler.toml`, Worker deployed |
-| **2** | Port Express routes to Worker | All `/api/*` routes working in Worker |
-| **3** | Replace MongoDB with Durable Object SQL | CV data persists in DO, no MongoDB dependency |
-| **4** | Replace OpenAI with Workers AI | AI review works via Llama 3.3 + SSE streaming |
-| **5** | Add AIChatAgent (new feature) | Stateful multi-turn job assistant chat |
-| **6** | Deploy frontend to Cloudflare Pages | Full app live on Cloudflare, no localhost |
-| **7** | Replace Puppeteer with Browser Rendering | PDF export works in production |
+**Prompt**
+> Propose several AI application ideas suitable for a Cloudflare-based assignment. Requirements: an LLM component, workflow or coordination, user input through chat or voice, and persistent state or memory.
 
----
+**Prompt**
+> I currently have a CV builder repository. Can I duplicate and rename it as a new repository, then adapt it into a Cloudflare-native AI application?
 
-## PHASE 1 — Tooling Setup + Hello-World Worker
-> Implement this phase fully before moving on. Verify each step before proceeding to the next.
+**Prompt**
+> Draft a high-level migration strategy for moving an existing Express, MongoDB, OpenAI, and Puppeteer application to Cloudflare Workers, Durable Objects, Workers AI, and the Agents SDK.
 
-### Goal
-Get a working Cloudflare Worker running locally with Wrangler, confirm it can be deployed, and establish the `worker/` directory structure that all future phases will build on.
-
-### Prerequisites (confirm these exist before starting)
-- Node.js v18+ installed (`node --version`)
-- npm installed (`npm --version`)
-- User is logged into GitHub
-- Repo root is `cf_ai_job_assistant/`
+**Prompt**
+> Produce a full Cloudflare migration plan for the current CV maker so it becomes an AI-powered job application assistant built on Cloudflare infrastructure.
 
 ---
 
-### Step 1.1 — Install Wrangler globally
+## Migration Plan And Phase Execution
 
-```bash
-npm install -g wrangler
-```
+**Prompt**
+> Write a high-level implementation plan for an AI coding agent. Break the migration into phases and fully implement Phase 1, including exact file contents, commands, expected results, and a completion checklist.
 
-Verify:
-```bash
-wrangler --version
-```
-Expected: prints a version number like `wrangler 3.x.x`. If this fails, do not proceed.
+**Prompt**
+> Follow the migration document and transform the current CV maker into an AI-powered job application assistant built on Cloudflare infrastructure.
 
----
-
-### Step 1.2 — Authenticate with Cloudflare
-
-```bash
-wrangler login
-```
-
-This opens a browser window. The user must log in to their Cloudflare account (or create one free at cloudflare.com). After login, verify:
-
-```bash
-wrangler whoami
-```
-
-Expected: prints the user's Cloudflare account name and email. If this fails or says "not logged in", do not proceed.
+**Prompt**
+> Implement this Cloudflare migration plan in the repository, preserving the existing React CV builder while replacing the backend stack with Cloudflare services.
 
 ---
 
-### Step 1.3 — Create the worker/ directory structure
+## Cloudflare Environment And Authentication
 
-From the project root (`cf_ai_job_assistant/`), create the following structure:
+**Prompt**
+> Advise on the correct Cloudflare API token configuration for local Wrangler development with Workers AI, Browser Rendering, Durable Objects, and Pages.
 
-```
-worker/
-  src/
-    index.ts        ← Worker entry point (replaces server/server.js)
-    agent.ts        ← AIChatAgent class (Phase 5, stub only for now)
-    durableObject.ts ← Durable Object class (Phase 3, stub only for now)
-  package.json
-  tsconfig.json
-  wrangler.toml     ← Cloudflare config (equivalent to .env + Docker config)
-```
+**Prompt**
+> Suggest the exact permissions and scoping needed for a custom Cloudflare token for this project.
 
-Create these files with the exact content below.
+**Prompt**
+> Create local environment placeholder files for the project, add them to `.gitignore`, and separate placeholders from real secrets.
 
 ---
 
-### Step 1.4 — Create worker/package.json
+## Data Fixtures And Local Testing
 
-```json
-{
-  "name": "cf-ai-job-assistant-worker",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "cf-typegen": "wrangler types"
-  },
-  "dependencies": {
-    "agents": "latest",
-    "hono": "^4.0.0"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.0.0",
-    "typescript": "^5.0.0",
-    "wrangler": "^3.0.0"
-  }
-}
-```
+**Prompt**
+> Create a realistic mock CV for a senior software development engineer that matches the application schema and can be imported for testing and debugging.
 
-Note: **Hono** is a lightweight Express-like router that runs natively in Cloudflare Workers. It will be used in Phase 2 to port the Express routes with minimal changes.
+**Prompt**
+> Explain where a saved fixture will appear in the application after posting it to the local API, and clarify the expected user flow for loading it in the UI.
 
 ---
 
-### Step 1.5 — Create worker/tsconfig.json
+## Debugging And Cloudflare Runtime Issues
 
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types"],
-    "strict": true,
-    "jsx": "react-jsx",
-    "noEmit": true
-  },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
-}
-```
+**Prompt**
+> Review the Wrangler logs and identify why remote preview, Browser Rendering, or Workers AI bindings are failing in local development.
 
----
+**Prompt**
+> Diagnose why the Worker starts in local mode but fails in remote mode, and separate code issues from Cloudflare authentication or preview-session issues.
 
-### Step 1.6 — Create worker/wrangler.toml
+**Prompt**
+> Resolve the Worker startup error caused by module loading in the local runtime.
 
-```toml
-name = "cf-ai-job-assistant"
-main = "src/index.ts"
-compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
+**Prompt**
+> Investigate why PDF export is unavailable and determine whether the issue is in application code, runtime configuration, or Cloudflare remote bindings.
 
-# Workers AI binding — gives access to Llama 3.3 and other models
-[ai]
-binding = "AI"
-
-# Durable Object binding — replaces MongoDB (configured in Phase 3)
-[[durable_objects.bindings]]
-name = "CV_STORE"
-class_name = "CVStoreDurableObject"
-
-# Durable Object migration — required when adding a new DO class
-[[migrations]]
-tag = "v1"
-new_classes = ["CVStoreDurableObject"]
-
-# Environment variables (non-secret)
-[vars]
-ENVIRONMENT = "development"
-
-# For local dev: add secrets via `wrangler secret put SECRET_NAME`
-# Never commit secrets to wrangler.toml
-```
+**Prompt**
+> Create a combined `npm run dev:remote` workflow that starts both the remote Worker and the React frontend with the correct feature flags.
 
 ---
 
-### Step 1.7 — Create worker/src/index.ts (hello-world entry point)
+## AI Review Debugging
 
-```typescript
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+**Prompt**
+> Debug the AI review flow. The review endpoint is returning an invalid response shape, and the model output is not being parsed as valid JSON.
 
-// Env interface — defines all Cloudflare bindings available to this Worker
-export interface Env {
-  AI: Ai                          // Workers AI binding
-  CV_STORE: DurableObjectNamespace // Durable Object binding (Phase 3)
-  ENVIRONMENT: string
-}
+**Prompt**
+> Add temporary debug logging to the AI review pipeline so the raw Workers AI response shape can be inspected before normalization and fallback logic.
 
-const app = new Hono<{ Bindings: Env }>()
+**Prompt**
+> Remove misleading intermediate review UI states, including premature low scores or completion messages while review generation is still in progress.
 
-// CORS — allows the React frontend (localhost:3000 in dev, Pages URL in prod)
-app.use('*', cors({
-  origin: ['http://localhost:3000', 'https://cf-ai-job-assistant.pages.dev'],
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-}))
+**Prompt**
+> Refine the AI review prompt contract so the model returns compact, structured JSON that matches the expected schema and avoids truncation.
 
-// Health check — verify Worker is running
-app.get('/api/health', (c) => {
-  return c.json({
-    status: 'ok',
-    environment: c.env.ENVIRONMENT,
-    message: 'CF AI Job Assistant Worker is running',
-    timestamp: new Date().toISOString(),
-  })
-})
-
-// Root route
-app.get('/', (c) => {
-  return c.text('CF AI Job Assistant Worker — see /api/health')
-})
-
-// 404 handler
-app.notFound((c) => {
-  return c.json({ error: 'Route not found' }, 404)
-})
-
-export default app
-```
+**Prompt**
+> Investigate why the review is still falling back, even when the model appears to be returning structured content, and adjust parsing or output constraints accordingly.
 
 ---
 
-### Step 1.8 — Create stub files for future phases
+## AI Assistant Debugging
 
-**worker/src/durableObject.ts** (stub — Phase 3 will implement this fully):
-```typescript
-import { DurableObject } from 'cloudflare:workers'
-import { Env } from './index'
+**Prompt**
+> Debug the assistant chat flow. The agent reports connection success, but the returned content is not being interpreted correctly by the client.
 
-// Replaces MongoDB in Phase 3
-// Each user gets their own Durable Object instance with built-in SQLite
-export class CVStoreDurableObject extends DurableObject<Env> {
-  async fetch(request: Request): Promise<Response> {
-    return new Response('Durable Object stub — Phase 3 not yet implemented', { status: 501 })
-  }
-}
-```
+**Prompt**
+> Add a clear chat action so persisted agent history can be reset during testing.
 
-**worker/src/agent.ts** (stub — Phase 5 will implement this fully):
-```typescript
-// AIChatAgent stub — Phase 5 will implement the full job assistant agent
-// This will replace the existing OpenAI service with a stateful Cloudflare Agent
-export class JobAssistantAgent {
-  // Phase 5: extend AIChatAgent from 'agents'
-  // Will handle: CV tailoring, job description analysis, multi-turn chat
-}
-```
+**Prompt**
+> Add temporary debug logging for the AI assistant so raw model outputs, normalization, and fallback behavior can be inspected.
+
+**Prompt**
+> Fix the assistant pipeline so structured tailoring suggestions are parsed reliably and surfaced in the Suggested Patches UI.
+
+**Prompt**
+> Improve the assistant prompt so outputs stay concise, structured, and less likely to be truncated, while preserving valid field paths for CV edits.
 
 ---
 
-### Step 1.9 — Install worker dependencies
+## UI And Product Behavior
 
-```bash
-cd worker
-npm install
-```
+**Prompt**
+> Keep AI Review and Assistant visible only when the runtime can support them, and provide clearer disabled or loading states to avoid confusing users.
 
----
+**Prompt**
+> Adjust the AI review panel so users do not see a score of zero before the review is complete.
 
-### Step 1.10 — Run the Worker locally
-
-```bash
-cd worker
-npm run dev
-```
-
-Expected output:
-```
-⛅️ wrangler 3.x.x
-------------------
-⎔ Starting local server...
-[mf:inf] Ready on http://localhost:8787
-```
-
-Test it:
-```bash
-curl http://localhost:8787/api/health
-```
-
-Expected response:
-```json
-{
-  "status": "ok",
-  "environment": "development",
-  "message": "CF AI Job Assistant Worker is running",
-  "timestamp": "..."
-}
-```
-
-If this works, Phase 1 is complete.
+**Prompt**
+> Ensure assistant results are synchronized back into the client state so saved suggestions and patches appear after a successful response.
 
 ---
 
-### Step 1.11 — Update root package.json to include worker dev command
+## Documentation And Submission
 
-In the root `package.json`, update the `scripts` section to add worker commands alongside the existing client/server commands:
+**Prompt**
+> Rewrite the project README so it accurately reflects the Cloudflare architecture, local and remote development modes, environment handling, fixtures, and troubleshooting.
 
-```json
-{
-  "scripts": {
-    "dev": "bash scripts/dev.sh",
-    "dev:worker": "cd worker && npm run dev",
-    "dev:client": "cd client && npm start",
-    "dev:server": "cd server && npm start",
-    "deploy:worker": "cd worker && npm run deploy"
-  }
-}
-```
+**Prompt**
+> Commit the migration work and ensure that `node_modules`, generated build output, and secrets are not included before pushing.
+
+**Prompt**
+> Track `prompt.md` in git because it is required for submission.
+
+**Prompt**
+> Rewrite `prompt.md` into a concise, professional prompt log for submission, containing prompts only and no model responses.
 
 ---
 
-### Step 1.12 — Optional: Deploy to Cloudflare (verify cloud deploy works)
+## Git And Repository Maintenance
 
-```bash
-cd worker
-npm run deploy
-```
+**Prompt**
+> Diagnose a failed `git push` caused by repository size and tracked dependencies, and identify a safe path to remove heavy generated files from version control.
 
-Expected: Wrangler bundles and uploads the Worker. Output includes a live URL like:
-```
-https://cf-ai-job-assistant.<your-subdomain>.workers.dev
-```
-
-Test the live URL:
-```bash
-curl https://cf-ai-job-assistant.<your-subdomain>.workers.dev/api/health
-```
+**Prompt**
+> Push the final committed work to the GitHub repository after confirming that ignored secrets and local artifacts are excluded.
 
 ---
 
-### Phase 1 Completion Checklist
-Before moving to Phase 2, confirm ALL of these:
+## Notes
 
-- [ ] `wrangler --version` prints a version number
-- [ ] `wrangler whoami` shows the Cloudflare account
-- [ ] `worker/` directory exists with all files from Steps 1.3–1.8
-- [ ] `npm run dev` in `worker/` starts without errors on port 8787
-- [ ] `curl http://localhost:8787/api/health` returns `{ "status": "ok" }`
-- [ ] Root `package.json` has `dev:worker` script
-- [ ] (Optional) Worker is deployed and live URL returns health check
-
----
-
-## What Phase 2 Will Do (preview — do not implement yet)
-
-Phase 2 will port all Express routes from `server/routes/` into the Hono router in `worker/src/index.ts`. Each route file maps directly:
-
-| Express route file | Hono equivalent |
-|-------------------|-----------------|
-| `routes/cv.js` | `app.get/post('/api/cv', ...)` |
-| `routes/export.js` | `app.post('/api/export', ...)` |
-| `routes/ai.js` | `app.post('/api/ai/review', ...)` |
-
-The Express `req`/`res` pattern maps almost 1:1 to Hono's `c.req`/`c.json()` pattern, so this phase is mostly mechanical translation with minimal logic changes.
-
+- The React frontend was carried forward from the original OnClickCV project and adapted for the Cloudflare migration.
+- AI assistance was used for architecture, implementation planning, debugging, prompt refinement, and documentation.
+- This file is intentionally limited to prompt history and excludes model responses.
