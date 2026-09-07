@@ -14,12 +14,12 @@
     "agents": "latest",
     "ai": "^6.0.0",
     "docx": "^8.0.2",
-    "hono": "^4.8.5",
+    "hono": "^4.13.7",
     "workers-ai-provider": "latest",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "typescript": "^5.8.2",
-    "wrangler": "^4.6.0"
+    "wrangler": "^4.129.1"
   }
 }
